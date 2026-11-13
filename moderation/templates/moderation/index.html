@@ -1,0 +1,25 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<div class="eyebrow">KB6060 / FINAL YEAR PROJECTS</div>
+<div class="page-heading"><div><h1>Risk assessment & ethics</h1><p>Check completion across a cohort. Keep the evidence and your decisions together.</p></div><span class="outline-tag">Completion review</span></div>
+<div class="upload-layout">
+  <section class="panel upload-panel">
+    <div class="section-heading"><span class="step-number">01</span><div><h2>Start a review</h2><p>Upload the original submission download.</p></div></div>
+    <form method="post" enctype="multipart/form-data" class="upload-form" data-upload-form>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <label for="id_title">Review name</label>{{ form.title }}{{ form.title.errors }}
+      <div class="file-drop"><span class="upload-icon" aria-hidden="true">↥</span><label for="id_archive">Choose your submission ZIP</label><p>Word and PDF files · up to 150 MB per ZIP</p><input id="id_archive" type="file" name="archive" accept=".zip,application/zip" required><span class="file-name" data-file-name>No file selected</span></div>
+      {{ form.archive.errors }}
+      <div class="ai-option"><label class="checkbox-label"><input type="checkbox" name="use_ai" id="id_use_ai" {% if form.use_ai.value %}checked{% endif %} {% if not ai_ready %}disabled{% endif %}><span><strong>Include AI language checks</strong><small>Review hazard relevance, workspace descriptions and inappropriate field entries.</small></span></label><span class="pill {% if ai_ready %}complete{% else %}pending{% endif %}">{% if ai_ready %}Available{% else %}Not configured{% endif %}</span></div>
+      {{ form.use_ai.errors }}
+      <p class="helper">{% if ai_ready %}Enabling AI sends extracted submission text to OpenAI and incurs API charges. Original files stay in this workspace.{% else %}Rule checks work now. Language-based checks will remain marked for manual review until AI is configured.{% endif %}</p>
+      {% if not ai_ready %}<details class="config-help"><summary>Enable OpenAI checks</summary><p>Copy <code>.env.example</code> to <code>.env</code>, set <code>OPENAI_API_KEY</code> and restart the server. The key stays on your computer and is never sent to the browser.</p></details>{% endif %}
+      <button class="button primary full" type="submit">Start review <span aria-hidden="true">→</span></button>
+      <p class="helper centered">Names and student numbers are read from the ZIP metadata. No student list needed.</p>
+    </form>
+  </section>
+  <aside class="review-explainer"><div class="eyebrow">THE REVIEW CHECKLIST</div><h2>{{ checklist_count }} checks.<br>Every finding traceable.</h2><p>Each submission gets a completion snapshot. Open any finding to see its evidence and record a moderation decision.</p><ul class="checklist-overview"><li><span>01</span><div><strong>Identity & workspace</strong><small>Student assessor, project details and an identified space.</small></div></li><li><span>02</span><div><strong>Risk assessment</strong><small>Completed rows, ratings and specialist assessment follow-ups.</small></div></li><li><span>03</span><div><strong>Ethics & declarations</strong><small>Low Risk only, responses and required confirmations.</small></div></li><li><span>04</span><div><strong>Sign-off & content flags</strong><small>Signatures and dates, with language checks for review.</small></div></li></ul><p class="workspace-note">Reviews save automatically as local files. You can return to them below.</p></aside>
+</div>
+<section class="recent-section"><div class="section-heading spread"><h2>Saved reviews</h2><span class="muted">{{ reviews|length }} review{{ reviews|length|pluralize }}</span></div>{% if reviews %}<div class="saved-list">{% for review in reviews %}<a class="saved-review" href="{% url 'moderation:review' review.id %}"><div><strong>{{ review.title }}</strong><small>{{ review.created|slice:':10' }} · {{ review.count }} submissions · {{ review.state|capfirst }}</small></div><span aria-hidden="true">↗</span></a>{% endfor %}</div>{% else %}<div class="empty-state"><strong>Your reviews will appear here.</strong><p>Start with a ZIP to create your first snapshot.</p></div>{% endif %}</section>
+{% endblock %}
