@@ -4,7 +4,7 @@ Evaluation reference: **Validation baseline v1 — 17 November 2026**, Git tag
 `validation-baseline-v1`. See [VALIDATION_BASELINE.md](VALIDATION_BASELINE.md)
 and [CHANGELOG.md](CHANGELOG.md) for scope, versions and verification.
 
-Development on `codex/validation-v2` follows [TODO.md](TODO.md). The v2
+Development on `validation-v2` follows [TODO.md](TODO.md). The v2
 changes accept inserted middle names when the first name and full submitted
 surname match, preserve ambiguous name variants for review, stop blank titles
 from borrowing risk-table headings, and recognise scoped `Name:` sign-off labels.

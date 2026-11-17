@@ -5,7 +5,7 @@
 Keep checking changes out of the frozen evaluation baseline. Implement and test
 these in a later version; preserve the original evaluation findings.
 
-Implementation completed on `codex/validation-v2` on 17 November 2026. Checked
+Implementation completed on `validation-v2` on 17 November 2026. Checked
 items below describe implemented moderator behaviour or explicitly recorded
 conditional future requirements. They do not constitute new staff validation or
 automatic approval of changed checks. Frozen findings, audits and approvals were
