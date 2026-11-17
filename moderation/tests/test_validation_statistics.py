@@ -50,6 +50,18 @@ def test_no_definite_pairs_does_not_report_perfect_agreement():
     assert result["possible_missed"] == result["possible_extra"] == 0
 
 
+def test_tool_coverage_is_independent_of_auditor_certainty():
+    result = summarise_cases(
+        [case("complete", "complete")] * 18
+        + [case("review", "issue"), case("issue", "review")]
+    )
+    assert result["agreement"] == "18/18 (100.0%)"
+    assert result["tool_definite"] == 19
+    assert result["coverage"] == "19/20 (95.0%)"
+    assert result["tool_uncertain"] == 1
+    assert summarise_cases([])["coverage"] == "No audited cases"
+
+
 def test_statistics_break_down_original_sources_versions_and_models_and_retain_cases():
     comparisons = [
         {"submission": {"id": "one"}, "rows": [case("complete", "complete")]},

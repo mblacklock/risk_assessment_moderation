@@ -76,6 +76,12 @@ def effective_status(check):
         return "skipped"
     if check["status"] == "skipped" and check.get("blocked_by"):
         return "skipped"
+    if (
+        check.get("id") == "specialists"
+        and check.get("supporting_assessments")
+        and check.get("decision") == "complete"
+    ):
+        return "supervisor"
     return check.get("decision") or check["status"]
 
 

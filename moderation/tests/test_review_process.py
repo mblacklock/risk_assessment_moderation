@@ -331,3 +331,40 @@ def test_audits_can_be_saved_before_name_time_or_comments(workflow_review, clien
     assert [
         item["validation_audits"] for item in store.load(review["id"])["submissions"]
     ] == original_records
+
+
+def test_saved_audit_can_be_reopened_and_corrected_without_losing_original(
+    workflow_review, client
+):
+    review = workflow_review
+    item = review["submissions"][0]
+    url = reverse("moderation:validation_audit", args=[review["id"], item["id"]])
+    payload = {f"audit_{c['id']}": "complete" for c in item["checks"]}
+    payload["notes"] = "Original audit note"
+    assert client.post(url, payload).status_code == 302
+    first = copy.deepcopy(
+        store.load(review["id"])["submissions"][0]["validation_audits"][0]
+    )
+    page = client.get(url)
+    assert page.context["editing_audit"]
+    assert page.context["form"]["audit_identity"].value() == "complete"
+    assert page.context["form"]["notes"].value() == "Original audit note"
+    assert b"Save changes" in page.content
+    assert b"Synthetic finding" not in page.content
+
+    def later_tool_change(data):
+        data["submissions"][0]["checks"][0]["message"] = "Different current tool text"
+
+    store.update(review["id"], later_tool_change)
+    assert client.post(url, {**payload, "audit_identity": "issue"}).status_code == 302
+    saved = store.load(review["id"])
+    history = saved["submissions"][0]["validation_audits"]
+    assert len(history) == 2 and history[0] == first
+    assert history[1]["findings"]["identity"] == "issue"
+    assert history[1]["revision_of"] == first["at"]
+    assert history[1]["automated_snapshot"] == first["automated_snapshot"]
+    assert history[1]["ai_metadata"] == first["ai_metadata"]
+    assert client.get(url).context["form"]["audit_identity"].value() == "issue"
+    overview = client.get(reverse("moderation:validation_list", args=[review["id"]]))
+    assert overview.context["audited_count"] == 1
+    assert b"Edit audit" in overview.content

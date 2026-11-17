@@ -22,11 +22,16 @@ NS = {
 
 
 def text_of(element):
-    return "".join(
-        (node.text or "") if node.tag == f"{{{NS['w']}}}t" else "\n"
-        for node in element.iter()
-        if node.tag in {f"{{{NS['w']}}}t", f"{{{NS['w']}}}br", f"{{{NS['w']}}}cr"}
-    ).strip()
+    def own_text(node):
+        if node.tag == f"{{{NS['w']}}}txbxContent":
+            return ""
+        if node.tag == f"{{{NS['w']}}}t":
+            return node.text or ""
+        if node.tag in {f"{{{NS['w']}}}br", f"{{{NS['w']}}}cr"}:
+            return "\n"
+        return "".join(own_text(child) for child in node)
+
+    return own_text(element).strip()
 
 
 def numbered_texts(body, numbering):
@@ -122,6 +127,9 @@ def highlighted_yes_no(paragraph):
     if not pair:
         return None
     ranges = paragraph.get("highlighted_ranges", [])
+    if not ranges:
+        # Only explicit run/span contrast is used, never inherited paragraph styling.
+        ranges = paragraph.get("bold_ranges", [])
     marked = [any(start <= i < end for start, end in ranges) for i in range(len(text))]
     yes, no = [marked[pair.start(key) : pair.end(key)] for key in ("yes", "no")]
     if not any(yes + no):
@@ -224,6 +232,29 @@ def extract_docx(data, filename):
         if len(xml) > 10 * 1024 * 1024:
             raise ValueError("Word document XML is too large.")
         root = ET.fromstring(xml)
+        styles = {}
+        if "word/styles.xml" in archive.namelist():
+            styles = {
+                node.get(f"{{{NS['w']}}}styleId"): node
+                for node in ET.fromstring(archive.read("word/styles.xml")).findall(
+                    "w:style", NS
+                )
+            }
+
+        def style_bold(style_id, seen=()):
+            if style_id in seen or style_id not in styles:
+                return False
+            node = styles[style_id]
+            strong = node.find("w:rPr/w:b", NS)
+            if strong is not None:
+                return strong.get(f"{{{NS['w']}}}val", "1") not in {"0", "false", "off"}
+            base = node.find("w:basedOn", NS)
+            return (
+                style_bold(base.get(f"{{{NS['w']}}}val"), (*seen, style_id))
+                if base is not None
+                else False
+            )
+
         body = root.find("w:body", NS)
         if body is None:
             raise ValueError("Word document body is missing.")
@@ -249,6 +280,41 @@ def extract_docx(data, filename):
         drawing_ids = {node: index for index, node in enumerate(drawing_nodes)}
         source_paragraphs = body.findall(".//w:p", NS)
         parents = {child: parent for parent in body.iter() for child in parent}
+        floating = set()
+        associations = {}
+        for box in body.findall(".//w:txbxContent", NS):
+            box_ps = box.findall(".//w:p", NS)
+            floating.update(box_ps)
+            node = parents.get(box)
+            anchor = None
+            while node is not None and node.tag != f"{{{NS['w']}}}p":
+                if node.tag.endswith("}anchor"):
+                    anchor = node
+                node = parents.get(node)
+            if node is None or anchor is None:
+                continue
+            vertical = anchor.find(
+                "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}positionV"
+            )
+            horizontal = anchor.find(
+                "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}positionH"
+            )
+            try:
+                placed = (
+                    vertical is not None
+                    and vertical.get("relativeFrom") == "paragraph"
+                    and abs(int(vertical[0].text)) <= 127000
+                    and horizontal is not None
+                    and horizontal.get("relativeFrom") == "character"
+                    and 0 <= int(horizontal[0].text) <= 381000
+                )
+            except (ValueError, TypeError, IndexError):
+                placed = False
+            if placed and re.search(r"\bJob Title\s*:\s*$", texts[node], re.I):
+                value = " ".join(texts[p] for p in box_ps).strip()
+                if value:
+                    texts[node] += " " + value
+                    associations[node] = value
         drawn_fields = {}
         uncertain_fields = set()
         for index, source in enumerate(source_paragraphs):
@@ -301,7 +367,7 @@ def extract_docx(data, filename):
                         f"word-drawing-{drawing_ids[node]}.png"
                     )
         paragraphs = []
-        for p in body.findall(".//w:p", NS):
+        for source_index, p in enumerate(body.findall(".//w:p", NS)):
             text = texts[p]
             images = []
             images.extend(drawn_fields.get(p, []))
@@ -327,10 +393,41 @@ def extract_docx(data, filename):
                     and checked.get(f"{{{NS['w']}}}val", "1") in {"1", "true"}
                 )
             if text or images or states:
-                paragraph = {"text": text, "images": images, "states": states}
+                paragraph = {
+                    "text": text,
+                    "images": images,
+                    "states": states,
+                    "source_index": source_index,
+                }
                 if p in uncertain_fields:
                     paragraph["signature_drawing_uncertain"] = True
-                raw, marked = "", []
+                if p in floating:
+                    paragraph["floating_text_unassociated"] = True
+                ancestor = parents.get(p)
+                while ancestor is not None and ancestor.tag != f"{{{NS['w']}}}tbl":
+                    ancestor = parents.get(ancestor)
+                if ancestor is not None:
+                    heading = ancestor.find("w:tr", NS)
+                    header_text = text_of(heading) if heading is not None else ""
+                    if (
+                        "hazard" in header_text.casefold()
+                        and "severity" in header_text.casefold()
+                    ):
+                        paragraph["risk_table_cell"] = True
+                if p in associations:
+                    paragraph["textbox_association"] = {
+                        "field": "Job Title",
+                        "text": associations[p],
+                        "placement": "paragraph/character anchor adjacent to field",
+                    }
+                raw, marked, bold = "", [], []
+                explicit_bold = False
+                paragraph_style = p.find("w:pPr/w:pStyle", NS)
+                inherited_bold = style_bold(
+                    paragraph_style.get(f"{{{NS['w']}}}val")
+                    if paragraph_style is not None
+                    else "Normal"
+                )
                 for run in p.findall(".//w:r", NS):
                     # Preserve spaces here: offsets must match the paragraph text.
                     value = "".join(
@@ -343,6 +440,20 @@ def extract_docx(data, filename):
                     )
                     raw += value
                     marked.extend([active] * len(value))
+                    strong = run.find("w:rPr/w:b", NS)
+                    explicit_bold |= strong is not None
+                    run_style = run.find("w:rPr/w:rStyle", NS)
+                    effective_bold = (
+                        strong.get(f"{{{NS['w']}}}val", "1")
+                        not in {"0", "false", "off"}
+                        if strong is not None
+                        else inherited_bold
+                        or (
+                            run_style is not None
+                            and style_bold(run_style.get(f"{{{NS['w']}}}val"))
+                        )
+                    )
+                    bold.extend([effective_bold] * len(value))
                 offset = text.find(raw.strip()) if raw.strip() else -1
                 if offset >= 0 and any(marked):
                     leading = len(raw) - len(raw.lstrip())
@@ -350,11 +461,30 @@ def extract_docx(data, filename):
                         leading : leading + len(raw.strip())
                     ]
                     paragraph["highlighted_ranges"] = highlight_ranges(flags)
+                if offset >= 0 and any(bold) and explicit_bold:
+                    leading = len(raw) - len(raw.lstrip())
+                    paragraph["bold_ranges"] = highlight_ranges(
+                        [False] * offset + bold[leading : leading + len(raw.strip())]
+                    )
                 paragraphs.append(paragraph)
-        tables = []
+        tables, table_positions, continuation_cells = [], [], []
         for table in body.findall(".//w:tbl", NS):
+            first_p = table.find(".//w:p", NS)
+            table_positions.append(
+                source_paragraphs.index(first_p) if first_p is not None else None
+            )
             rows = []
+            continuations = []
             for row in table.findall("w:tr", NS):
+                cells = row.findall("w:tc", NS)
+                continuations.append(
+                    [
+                        i
+                        for i, cell in enumerate(cells)
+                        if (merge := cell.find("w:tcPr/w:vMerge", NS)) is not None
+                        and merge.get(f"{{{NS['w']}}}val", "continue") == "continue"
+                    ]
+                )
                 rows.append(
                     [
                         "\n".join(texts[p] for p in cell.findall(".//w:p", NS)).strip()
@@ -362,11 +492,14 @@ def extract_docx(data, filename):
                     ]
                 )
             tables.append(rows)
+            continuation_cells.append(continuations)
         return {
             "filename": filename,
             "kind": "docx",
             "paragraphs": paragraphs,
             "tables": tables,
+            "table_positions": table_positions,
+            "continuation_cells": continuation_cells,
             "pages": None,
             "highlight_reader_version": 1,
             "drawing_reader_version": 1,
@@ -407,7 +540,7 @@ def pdf_paragraphs(page, tutor_tables, tables=()):
     )["blocks"]:
         if block["type"] != 0:
             continue
-        parts, flags, origin, bounds = [], [], None, []
+        parts, flags, bold_flags, origin, bounds = [], [], [], None, []
 
         def flush():
             if parts:
@@ -421,9 +554,12 @@ def pdf_paragraphs(page, tutor_tables, tables=()):
                 paragraph["page"] = page.number + 1
                 if any(flags):
                     paragraph["highlighted_ranges"] = highlight_ranges(flags)
+                if any(bold_flags):
+                    paragraph["bold_ranges"] = highlight_ranges(bold_flags)
                 positioned.append((origin, paragraph))
                 parts.clear()
                 flags.clear()
+                bold_flags.clear()
                 bounds.clear()
 
         for line in block["lines"]:
@@ -431,6 +567,12 @@ def pdf_paragraphs(page, tutor_tables, tables=()):
             raw = "".join(c["c"] for c in characters)
             text = raw.strip()
             line_flags = []
+            line_bold = [
+                bool(span.get("flags", 0) & 16)
+                for span in line["spans"]
+                for c in span["chars"]
+                for _ in c["c"]
+            ]
             for c in characters:
                 x0c, y0c, x1c, y1c = c["bbox"]
                 selected = any(
@@ -455,8 +597,10 @@ def pdf_paragraphs(page, tutor_tables, tables=()):
                     origin = (y0, x0)
                 else:
                     flags.append(False)
+                    bold_flags.append(False)
                 parts.append(text)
                 flags.extend(line_flags)
+                bold_flags.extend(line_bold[leading : leading + len(text)])
                 bounds.append(line["bbox"])
         flush()
     for table in tutor_tables:
@@ -484,8 +628,93 @@ def pdf_paragraphs(page, tutor_tables, tables=()):
     paragraphs = [
         p for row in rows for _, p in sorted(row, key=lambda pair: pair[0][1])
     ]
+    pdf_checkbox_states(page, paragraphs)
     attach_pdf_signature_images(page, paragraphs, tables)
     return paragraphs
+
+
+def pdf_checkbox_states(page, paragraphs):
+    """Read isolated vector boxes beside risk options; uncertain graphics stay manual."""
+    import pymupdf
+
+    paths = page.get_drawings()
+    boxes = [
+        pymupdf.Rect(item[1])
+        for path in paths
+        for item in path["items"]
+        if item[0] == "re"
+        and 6 <= pymupdf.Rect(item[1]).width <= 18
+        and 6 <= pymupdf.Rect(item[1]).height <= 18
+        and 0.75 <= pymupdf.Rect(item[1]).width / pymupdf.Rect(item[1]).height <= 1.3
+    ]
+    images = page.get_image_info()
+    for paragraph in paragraphs:
+        if paragraph["states"] or re.search(r"[☐☒☑]", paragraph["text"]):
+            continue
+        options = re.findall(r"\b(?:Low|Medium) Risk\b", paragraph["text"], re.I)
+        if not options:
+            continue
+        states = []
+        for option in options:
+            labels = [
+                r
+                for r in page.search_for(option)
+                if pymupdf.Rect(paragraph.get("pdf_bbox", [0, 0, 0, 0])).intersects(r)
+            ]
+            candidates = [
+                box
+                for box in boxes
+                if any(
+                    0 <= label.x0 - box.x1 <= 24
+                    and abs((label.y0 + label.y1) / 2 - (box.y0 + box.y1) / 2) <= 6
+                    for label in labels
+                )
+            ]
+            if len(candidates) != 1:
+                states.append(None)
+                continue
+            box = candidates[0]
+            inner = pymupdf.Rect(box.x0 + 1.5, box.y0 + 1.5, box.x1 - 1.5, box.y1 - 1.5)
+            if any(
+                inner.intersects(pymupdf.Rect(img["bbox"])) for img in images
+            ) or any(
+                inner.intersects(annotation.rect) for annotation in page.annots() or []
+            ):
+                states.append(None)
+                continue
+            ink = any(
+                item[0] == "l"
+                and inner.contains(item[1])
+                and inner.contains(item[2])
+                and abs(item[1].x - item[2].x) > 1
+                and abs(item[1].y - item[2].y) > 1
+                for path in paths
+                for item in path["items"]
+            )
+            text = page.get_text("text", clip=inner).strip()
+            uncertain = any(
+                inner.intersects(path["rect"])
+                and (
+                    any(item[0] not in {"re", "l"} for item in path["items"])
+                    or (
+                        path.get("fill") is not None
+                        and min(path["fill"]) < 0.8
+                        and path.get("fill_opacity", 1) > 0.2
+                    )
+                )
+                for path in paths
+            )
+            states.append(
+                True
+                if ink or text in {"x", "X", "✓", "✔"}
+                else None
+                if text or uncertain
+                else False
+            )
+        paragraph["states"] = states
+        paragraph["pdf_selection_note"] = (
+            "Vector checkbox selection inspected beside the risk option; ambiguous marks remain unreadable."
+        )
 
 
 def attach_pdf_signature_images(page, paragraphs, tables=()):
@@ -660,7 +889,7 @@ def extract_pdf(data, filename):
     with pymupdf.open(stream=data, filetype="pdf") as pdf:
         if pdf.needs_pass or len(pdf) > 60:
             raise ValueError("PDF is encrypted or exceeds 60 pages.")
-        paragraphs, risk_rows = [], []
+        paragraphs, risk_rows, table_groups, table_positions = [], [], [], []
         columns = None
         last_items = {}
         reliable = True
@@ -675,6 +904,8 @@ def extract_pdf(data, filename):
                 in normalise(" ".join(str(v or "") for v in t.extract()[0]))
             ]
             paragraphs.extend(pdf_paragraphs(page, tutor_tables, detected))
+            for source_index, paragraph in enumerate(paragraphs):
+                paragraph["source_index"] = source_index
             header = next(
                 (
                     t
@@ -774,7 +1005,25 @@ def extract_pdf(data, filename):
                     continue
                 if not risk_rows:
                     risk_rows.append([value or "" for value in rows[0]])
+                table_groups.append([[value or "" for value in rows[0]]])
+                table_positions.append(
+                    next(
+                        (
+                            i
+                            for i, p in enumerate(paragraphs)
+                            if p.get("page") == page.number + 1
+                            and p.get("pdf_bbox", [0, 0])[1] >= header.bbox[1]
+                        ),
+                        len(paragraphs) - 1,
+                    )
+                )
                 rows = rows[1:]
+                if (
+                    rows
+                    and re.fullmatch(r"[A-Za-z]*1[.)]?", (rows[0][0] or "").strip())
+                    and re.search(r"Area\s*/\s*Activity\s*:", page.get_text(), re.I)
+                ):
+                    last_items = {}
             elif columns:
                 continuation = page.find_tables(
                     vertical_strategy="explicit",
@@ -813,7 +1062,13 @@ def extract_pdf(data, filename):
                     if number != last_items.get(prefix, 0) + 1:
                         reliable = False
                     risk_rows.append(row)
+                    table_groups[-1].append(row)
                     last_items[prefix] = number
+                    found = True
+                elif last_items and not row[0] and row[2] and row[7]:
+                    # A continuation hazard in the same bounded nine-column table.
+                    risk_rows.append(row)
+                    table_groups[-1].append(row)
                     found = True
                 elif (
                     last_items
@@ -830,11 +1085,24 @@ def extract_pdf(data, filename):
             "filename": filename,
             "kind": "pdf",
             "paragraphs": paragraphs,
-            "tables": [risk_rows] if len(risk_rows) > 1 else [],
+            "tables": [table for table in table_groups if len(table) > 1],
+            "table_positions": [
+                position
+                for table, position in zip(table_groups, table_positions, strict=True)
+                if len(table) > 1
+            ],
             "pages": len(pdf),
             "pdf_reader_version": 9,
             "highlight_reader_version": 1,
             "risk_table_reliable": reliable,
+            "text_coverage_reliable": all(
+                len(page.get_text().strip()) >= 100
+                and not any(
+                    pymupdf.Rect(img["bbox"]).get_area() > page.rect.get_area() * 0.7
+                    for img in page.get_image_info()
+                )
+                for page in pdf
+            ),
         }
 
 

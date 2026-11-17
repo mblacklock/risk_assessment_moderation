@@ -863,6 +863,13 @@ def study_settings(request, review_id):
 
 class ValidationAuditForm(forms.Form):
     notes = forms.CharField(required=False, max_length=5000, widget=forms.Textarea)
+    other_corrections = forms.CharField(
+        required=False,
+        max_length=5000,
+        label="Other corrections not covered by the checks",
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Record additional feedback, unused-row cleanup or a correction that did not fit an audit category. This does not change the selected check outcomes.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -944,7 +951,20 @@ def validation_audit(request, review_id, submission_id):
     item = get_submission(data, submission_id)
     if request.GET.get("compare") == "1":
         return redirect("moderation:validation_comparison", review_id=review_id)
-    form = ValidationAuditForm(request.POST if request.method == "POST" else None)
+    latest = (
+        item.get("validation_audits", [])[-1] if item.get("validation_audits") else None
+    )
+    initial = (
+        {f"audit_{key}": value for key, value in latest.get("findings", {}).items()}
+        if latest
+        else {}
+    )
+    if latest:
+        initial["notes"] = latest.get("notes", "")
+        initial["other_corrections"] = latest.get("other_corrections", "")
+    form = ValidationAuditForm(
+        request.POST if request.method == "POST" else None, initial=initial
+    )
     if request.method == "POST" and form.is_valid():
 
         def change(review):
@@ -954,7 +974,9 @@ def validation_audit(request, review_id, submission_id):
                 )
             auditor = review.get("audit_details", {}).get("auditor", "")
             target = get_submission(review, submission_id)
-            target.setdefault("validation_audits", []).append(
+            history = target.setdefault("validation_audits", [])
+            previous = history[-1] if history else None
+            history.append(
                 {
                     "at": store.now(),
                     "reviewer": auditor,
@@ -962,12 +984,20 @@ def validation_audit(request, review_id, submission_id):
                         review.get("audit_details", {})
                     ),
                     "notes": form.cleaned_data["notes"],
+                    "other_corrections": form.cleaned_data["other_corrections"],
                     "version": checking_version(),
                     "findings": {
                         key: form.cleaned_data[f"audit_{key}"] for key, _, _ in CRITERIA
                     },
-                    "automated_snapshot": copy.deepcopy(target["checks"]),
-                    "ai_metadata": copy.deepcopy(target.get("ai", {})),
+                    "automated_snapshot": copy.deepcopy(
+                        previous["automated_snapshot"] if previous else target["checks"]
+                    ),
+                    "ai_metadata": copy.deepcopy(
+                        previous.get("ai_metadata", {})
+                        if previous
+                        else target.get("ai", {})
+                    ),
+                    "revision_of": previous["at"] if previous else None,
                 }
             )
 
@@ -987,6 +1017,7 @@ def validation_audit(request, review_id, submission_id):
             "review": data,
             "submission": item,
             "form": form,
+            "editing_audit": bool(latest),
             "audit_fields": [
                 {
                     "category": category,
@@ -999,10 +1030,34 @@ def validation_audit(request, review_id, submission_id):
     )
 
 
-def validation_comparisons(state):
+def validation_comparisons(state, historical=()):
     comparisons = []
     for row in state["audit_rows"]:
         rows = comparison_rows(row["audit"])
+        for result in rows:
+            earlier = [
+                d
+                for d in historical
+                if d["student_number"] == row["submission"]["number"]
+                and d["check"] == result["id"]
+            ]
+            if earlier:
+                result["historical_history"] = earlier
+                result["historical_decision"] = earlier[-1]
+            decisions = [
+                d
+                for d in row["submission"].get("audit_adjudications", [])
+                if d["audit_at"] == row["audit"]["at"]
+                and d["criterion"] == result["id"]
+            ]
+            if decisions:
+                from .validation import ADJUDICATIONS
+
+                result["adjudication"] = decisions[-1]
+                result["adjudication_label"] = ADJUDICATIONS.get(
+                    decisions[-1]["classification"], "Unresolved"
+                )
+            result["submission_id"] = row["submission"]["id"]
         comparisons.append(
             {
                 **row,
@@ -1013,6 +1068,55 @@ def validation_comparisons(state):
             }
         )
     return comparisons
+
+
+@never_cache
+@require_POST
+def adjudicate_audit(request, review_id, submission_id, criterion):
+    from .validation import ADJUDICATIONS
+
+    classification = request.POST.get("classification", "")
+    reason = request.POST.get("reason", "").strip()
+    if (
+        criterion not in BY_ID
+        or criterion in REMINDER_CHECKS
+        or classification not in ADJUDICATIONS
+        or not reason
+        or len(reason) > 5000
+    ):
+        return HttpResponse(
+            "Choose a classification and give a reason for an assessed check.",
+            status=400,
+        )
+
+    def change(review):
+        if not audit_overview(review)["comparison_ready"] or request.POST.get(
+            "basis"
+        ) != comparison_token(review):
+            raise ValueError(
+                "The comparison changed. Reload before saving the decision."
+            )
+        item = get_submission(review, submission_id)
+        audit = item["validation_audits"][-1]
+        item.setdefault("audit_adjudications", []).append(
+            {
+                "at": store.now(),
+                "audit_at": audit["at"],
+                "criterion": criterion,
+                "classification": classification,
+                "reason": reason,
+            }
+        )
+
+    try:
+        store.update(str(review_id), change)
+    except ValueError as error:
+        return HttpResponse(str(error), status=409)
+    return redirect(
+        reverse("moderation:validation_comparison", args=[review_id])
+        + "#comparison-"
+        + str(submission_id)
+    )
 
 
 @never_cache
@@ -1030,7 +1134,15 @@ def validation_comparison(request, review_id):
             },
             status=403,
         )
-    comparisons = validation_comparisons(state)
+    from .validation import historical_adjudications
+
+    historical_error = ""
+    try:
+        historical = historical_adjudications(data)
+    except ValueError as error:
+        historical = []
+        historical_error = str(error)
+    comparisons = validation_comparisons(state, historical)
     statistics = check_statistics(comparisons)
     version = checking_version()
     for stat in statistics:
@@ -1060,6 +1172,7 @@ def validation_comparison(request, review_id):
             "review": data,
             **state,
             "comparisons": comparisons,
+            "historical_error": historical_error,
             "check_statistics": statistics,
             "comparison_token": comparison_token(data),
             "approval_saved": request.GET.get("approval") in {"approve", "revoke"},

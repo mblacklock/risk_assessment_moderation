@@ -4,6 +4,11 @@ from . import views
 
 app_name = "moderation"
 urlpatterns = [
+    path(
+        "reviews/<uuid:review_id>/audits/adjudicate/<uuid:submission_id>/<str:criterion>/",
+        views.adjudicate_audit,
+        name="adjudicate_audit",
+    ),
     path("", views.index, name="index"),
     path("reviews/<uuid:review_id>/", views.review, name="review"),
     path(

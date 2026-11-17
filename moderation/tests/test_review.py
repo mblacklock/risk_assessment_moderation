@@ -970,8 +970,10 @@ def test_pdf_does_not_claim_signature_or_checkbox_certainty():
         data = pdf.tobytes()
     checks, _ = check_documents([extract_document(data, "form.pdf")], STUDENT)
     for check in checks:
-        if check["id"] in {"low_risk", "student_ra", "supervisor_ethics"}:
+        if check["id"] == "student_ra":
             assert check["status"] == "review"
+        if check["id"] in {"low_risk", "supervisor_ethics"}:
+            assert check["status"] == "skipped"
 
 
 def highlighted_word_bytes(choice):
@@ -1009,7 +1011,7 @@ def highlighted_word_bytes(choice):
         ("yes", "supervisor"),
         ("both", "moderator"),
         ("none", "issue"),
-        ("reference", "issue"),
+        ("reference", "moderator"),
     ],
 )
 def test_word_highlights_select_primary_specialist_answers(choice, status):
@@ -1138,7 +1140,7 @@ def highlighted_pdf_bytes(choice, style):
         ("yes", "supervisor"),
         ("both", "moderator"),
         ("none", "issue"),
-        ("reference", "issue"),
+        ("reference", "moderator"),
     ],
 )
 def test_pdf_highlights_select_primary_answers(choice, status, style):
@@ -2548,8 +2550,11 @@ def test_computer_locations_use_activity_context_in_ai_review(
     assert payload["location"] == location
     assert payload["risk_table_rows"][0][1] == activity
     assert research in payload["activity_descriptions"]
-    assert "RA activities AND ethics Research" in instructions
-    assert "no planned physical work, including conditional" in instructions
+    assert "Use actual RA and ethics activity" in instructions
+    assert (
+        "corresponding\nphysical RA section separately, including conditional work"
+        in instructions
+    )
     assert checks["location"]["status"] == status
     assert checks["location"]["source"] == "AI"
     assert checks["facilities"]["status"] == status

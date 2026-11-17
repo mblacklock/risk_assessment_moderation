@@ -21,7 +21,7 @@ from moderation.workflow import finding_fingerprint, review_progress
         ("Yes", "supervisor"),
         ("N for water, Y if chemicals are used", "supervisor"),
         ("", "issue"),
-        ("Y/N? Please list reference No: N", "issue"),
+        ("Y/N? Please list reference No: N", "moderator"),
         ("unclear", "moderator"),
         ("Y and N", "moderator"),
         ("Maybe", "moderator"),
@@ -38,15 +38,15 @@ def test_specialist_outcomes_separate_followup_from_completion_and_reading(
     assert overall([check]) == status
 
 
-def test_missing_answer_still_issue_when_another_specialist_is_yes():
+def test_misplaced_answer_needs_judgement_and_retains_other_yes_followup():
     document = extract_document(document_bytes(specialist="Yes"), "synthetic.docx")
     for p in document["paragraphs"]:
         if p["text"].startswith("Manual Handling:"):
             p["text"] = "Manual Handling: Y/N Please list reference No: No"
     checks, _ = check_documents([document], STUDENT)
     check = next(c for c in checks if c["id"] == "specialists")
-    assert check["status"] == "issue"
-    assert "Supervisor" in check["message"] and "Unanswered" in check["message"]
+    assert check["status"] == "moderator"
+    assert "Supervisor" in check["message"] and "Interpretable" in check["message"]
 
 
 def test_supervisor_followup_moderation_export_and_saved_migration(

@@ -78,7 +78,9 @@ def feedback_signature(item):
                 "reviewed_at",
                 "reviewed_fingerprint",
                 "blocked_by",
+                "supporting_assessments",
             )
+            if key != "supporting_assessments" or c.get("supporting_assessments")
         }
         for c in ordered_checks(item["checks"])
     ]
@@ -94,10 +96,26 @@ def clean_message(message):
 
 
 def fallback_wording(check, status):
+    if (
+        status == "supervisor"
+        and check["id"] == "specialists"
+        and check.get("supporting_assessments")
+    ):
+        return (
+            "Locate and review the supporting specialist assessments for "
+            + joined(check["supporting_assessments"])
+            + "."
+        )
     # A confirmed Issue found supplies the judgement; known completion requirements
     # can supply the correction without exposing private notes or inventing details.
     if status == "issue" and check["id"] == "location":
-        return "Complete or clarify Area/Activity: identify the named room/laboratory or specific process/test procedure for the work. For computer-only work, identify the computer workstation/workspace or setup. A building name alone is not specific enough."
+        return "Complete or clarify Area/Activity or the dedicated Location field in each RA section. Identify the named room/laboratory or specific process/test procedure for physical work. A clear computer-based activity description is sufficient for computer-work sections. A building name alone is not specific enough for physical work."
+    if (
+        status == "issue"
+        and check["id"] == "ethics_details"
+        and check.get("missing_form")
+    ):
+        return "Upload the completed ethics form, including the required declarations and student/supervisor sign-offs."
     if status == "issue" and check["id"] == "low_risk":
         return "Retain or restore the Low Risk and Medium Risk selection boxes and clearly select Low Risk only, leaving Medium Risk unselected. Do not delete the options. If your project does not meet the Low Risk conditions, discuss the required changes with your supervisor before proceeding."
     # An override may identify a new issue without stating what needs correction.
@@ -240,10 +258,7 @@ def suggested_wording(check, status, item=None):
     key = check["id"]
     if status == "issue":
         if key == "location":
-            text = "State where the work will take place. Identify the named room/laboratory or specific process/test procedure; for computer-only work, identify the computer workstation or workspace/setup."
-            if "building name" in check["message"].casefold():
-                text += " A building name alone is not specific enough; identify the room or actual computer workspace."
-            return text
+            return fallback_wording(check, status)
         if key == "admin":
             questions = {
                 "1": "Can this risk assessment be shared and labelled Generic to the University (is the activity also carried out in another faculty or department)?",

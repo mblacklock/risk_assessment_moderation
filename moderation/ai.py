@@ -24,6 +24,9 @@ class Judgement(BaseModel):
     quotes: list[str] = Field(
         description="Exact supporting excerpts from the submission"
     )
+    concern: Literal[
+        "general", "mixed_hs", "name_variation", "lab_code", "location_specificity"
+    ] = "general"
 
 
 class LanguageReview(BaseModel):
@@ -57,6 +60,12 @@ def dedicated_scope_violation(status, explanation):
         return False
     if re.search(r"\bassessor\b", explanation, re.I):
         return True
+    if re.search(
+        r"\b(?:retained|example|sample)\b.*\b(?:example|row)\b|\bexample row\b",
+        explanation,
+        re.I,
+    ):
+        return True
     return bool(
         re.search(
             r"\b(?:student name|supervisor name|project title|assessment title|assessor|"
@@ -87,32 +96,27 @@ Assess meaning rather than matching a list of accepted terms. Allow synonyms,
 abbreviations, spelling variants and equivalent descriptions, including additive
 manufacturing, FDM and 3D printing when they identify a clear process. Examples
 are illustrative, not an exhaustive list of acceptable processes or procedures.
-For computer-only projects, identify a computer workstation or a workspace for
-computer/desk work. Examples include university computer labs, a library workspace,
-'home office', 'PC at home', or an equivalent description of a computer-work setup.
-These examples are not a whitelist: assess the meaning of the entered wording.
-Bare 'home' does not identify a computer-work setup and must be clarified: return
-issue. 'Design/Simulation' alone is a generic activity, not a workspace or specific
-process/procedure: return issue. The Area/Activity entry itself must supply a clear
-workspace/setup or a specific process/procedure. Do not borrow CAD/CFD details or
-other specifics from activity descriptions to make a vague entry pass. A room
-number is not required for an otherwise clear computer-work setup.
-Apply this exception only when the actual RA activities AND ethics Research
-Activities establish computer-only work (e.g. simulation, coding or desk research),
-with no planned physical work, including conditional experiments or fabrication.
-Quote the Area/Activity entry and supporting RA and ethics activity evidence when
-using this exception. Do not infer computer-only work from the project title.
+For a computer-work RA section, a clear computer-based activity description is
+sufficient without a named workstation or room. Computer software work, coding,
+CAD/CFD or a meaningful computer-work setup can identify that activity by meaning;
+examples are not a whitelist. Bare 'home' or an unexplained generic
+'Design/Simulation' still needs clarification. Use actual RA and ethics activity
+evidence, not the project title. Physical work covered in a separate RA section
+does not invalidate an otherwise clear computer section. Check the corresponding
+physical RA section separately, including conditional work. Quote each section's
+own Area/Activity or dedicated Location entry and its corresponding activities.
 If the activities are missing or ambiguous, use review rather than assuming the
-exception applies. A blank Area/Activity remains an issue; do not fill it in from
-elsewhere. For physical work, generic places or activities such as 'in campus',
+exception applies. A dedicated Location field in that RA section can supply the
+workspace; do not require repetition in Area/Activity. If both are blank the rule
+owns the omission. For physical work, generic places or activities such as 'in campus',
 'laboratory for practical use', 'testing' or 'manufacturing' remain too vague:
 return issue and request a specific process, procedure or workspace.
 For mixed entries such as 'Engineering laboratories and computer facilities' at
 a named university, assess the actual planned work. 'Engineering laboratories'
 is a generic category, not a named laboratory; adding a university, city or
 computer facilities does not make it specific for physical work. If any physical
-work is planned, including conditional testing, return issue unless Area/Activity
-itself also names a laboratory/room or clearly identifies a specific process or
+work is planned in that section, including conditional testing, return issue unless its
+Area/Activity or dedicated Location names a laboratory/room or clearly identifies a specific process or
 test procedure. Do not borrow the missing process or procedure from other answers.
 For confirmed computer-only work, stated university computer facilities are
 sufficient; do not demand a named physical lab just because generic laboratories
@@ -122,9 +126,12 @@ poor grades, plagiarism or missed deadlines are not H&S hazards. Fatigue, stress
 eye strain and musculoskeletal discomfort can be H&S hazards. Flag hazards that
 are explicitly outside the actual project activities; distinguish simulations from
 handling real chemicals or equipment. Do not judge whether controls are sufficient.
-Return issue for a clearly non-H&S hazard requiring student correction. Use review
-only when relevance is borderline or ambiguous, not merely because a moderator
-will see the finding.
+Return issue for a clearly non-H&S hazard requiring student correction. For a
+borderline mixture of genuine H&S effects and minor project-only consequences,
+return review with concern=mixed_hs and identify both parts. Genuine stress or
+fatigue remain health effects even when triggered by software problems. A moderator
+may waive minor wording cleanup; that does not prove the technical wording correct.
+An evidence-confirmed protected non-H&S rule flag must remain an issue.
 For hs_relevance, quote exact hazard-cell text from risk_table_rows. The PDF text
 stream may order cells differently; use the structured table values as evidence.
 Do not invent a combined row or add labels to a quote.
@@ -132,19 +139,20 @@ facilities: compare the stated workspace with BOTH the risk assessment's actual
 activities/equipment and the ethics Research Activities response. This is separate
 from whether a location is clearly identified. Computer facilities plus planned
 physical experiments, chemical handling, fabrication or physical load testing need
-an identified corresponding workspace. Return issue when the submitted workspace
-is clearly missing for those activities or incompatible with them. Include conditional
+an identified corresponding workspace. Return issue for an evidenced conflict
+between the submitted workspace and those activities. Include conditional
 physical work ('if approved') in that comparison; do not treat it as already ruled
 out. If another space for physical work is clearly identified, account for it.
-Computer-only work still needs an identified computer workstation/workspace.
-A generic activity label such as Design/Simulation does not identify a workspace;
-if no actual setup/workspace is stated for the planned activities, return issue
-and request it. Support the finding with the entered field and actual activity
+Insufficient location specificity alone belongs to location, not facilities.
+For facilities report genuine incompatibility between stated spaces and actual
+activities. Set concern=location_specificity if your only concern is missing or
+vague location wording; do not duplicate that correction. A clear computer-based
+section can be consistent without a named workstation. Support actual conflicts
+with the entered field and corresponding activity
 evidence; do not treat an extraction or quote-verification failure as a student error.
 Generic engineering laboratories plus computer facilities do not identify a
-physical workspace for planned experiments, fabrication or testing. If physical
-work is planned without an identified space for it, return issue even if a
-university/city is named. For confirmed computer-only work, the computer facilities
+physical workspace for planned experiments, fabrication or testing; report that
+specificity concern under location. For confirmed computer-only work, the computer facilities
 can be consistent; an incidental mention of laboratories does not imply physical
 work. Keep this comparison separate from the Area/Activity specificity judgement.
 Computer facilities plus explicit CFD/simulation-only activities, with no physical
@@ -155,7 +163,12 @@ Return issue for a clear completion/consistency defect needing student correctio
 use review only for borderline or ambiguous comparisons. This is not a safety
 approval or a definitive judgement of room suitability. Do not
 infer the equipment or suitability of a room from its code. The supervisor assesses
-room suitability. For this criterion, quotes MUST include an exact workspace
+room suitability. A module/course code is not evidence of a room: establish its
+meaning from context, or use review. Do not maintain code/name whitelists.
+Use risk_sections to associate each location with its own rows. Never compare the
+first section's computer location against separately covered physical work to
+invent a conflict. Uncertain section association requires review, not a pass.
+For this criterion, quotes MUST include an exact workspace
 extract AND a separate exact extract from actual RA/ethics activity descriptions.
 entry_quality: identify text in the wrong field (e.g. project title as job title),
 irrelevant entered answers and clear contradictions. Minor grammar
@@ -173,6 +186,16 @@ Assessor identity is owned ONLY by identity (Assessor is student): do not assess
 report or mention whether the Assessor contains a student, staff or supervisor name
 in entry_quality. This remains excluded when phrased as a wrong-field entry.
 Use the recorded identity result for context and assess only the remaining fields.
+Retained example rows belong only to example; never duplicate them here.
+Different locations/activities in separate RA sections are not contradictions.
+Unverified supervisor-name variations (initials, shortened or adopted names) need
+manual identity confirmation: return review with concern=name_variation and quote
+both entries. A shared surname does not prove identity; do not maintain alias lists.
+Suspected lab-code discrepancies require review with concern=lab_code and the
+compared codes, unless document evidence establishes the intended room and typo.
+Do not guess which room was intended or assume additional labs contradict each other.
+Floating text with uncertain field placement requires review, not a missing-field
+claim. Use verified textbox associations supplied in the evidence.
 Template word-limit instructions such as '(200 words maximum).' or a split
 'words maximum).' fragment are not student answers and are not quality issues.
 Job Title identifies the person's role: Student (or an equivalent student role)
@@ -286,6 +309,17 @@ def apply_ai(checks, extracted, student):
         "checks_to_assess": sorted(eligible),
         "location": extracted["location"],
         "risk_table_rows": extracted["risk_rows"],
+        "risk_sections": extracted.get("risk_sections", []),
+        "module_code_context": extracted.get("module_code_context", []),
+        "textbox_context": [
+            {
+                "text": p["text"],
+                "association": p.get("textbox_association"),
+                "unassociated": p.get("floating_text_unassociated", False),
+            }
+            for p in extracted["paragraphs"]
+            if p.get("textbox_association") or p.get("floating_text_unassociated")
+        ],
         "activity_descriptions": extracted["activity_text"],
         "document_text": document_text,
         "dedicated_completion_checks": [
@@ -344,6 +378,7 @@ def apply_ai(checks, extracted, student):
         if key == "location" and not extracted["location"].strip():
             continue
         judgement = getattr(response.output_parsed, key)
+        concern = getattr(judgement, "concern", "general")
         if key == "hs_relevance":
             check["hs_relevance_ai_version"] = 1
             check["hs_relevance_evidence_version"] = 1
@@ -423,7 +458,7 @@ def apply_ai(checks, extracted, student):
                 for quote in verified
                 if (
                     workspace_value := re.sub(
-                        r"^area\s*/\s*activity\s*:\s*",
+                        r"^(?:area\s*/\s*activity|location)\s*:\s*",
                         "",
                         re.sub(r"\s+", " ", quote).strip().casefold(),
                     )
@@ -480,6 +515,53 @@ def apply_ai(checks, extracted, student):
                     reason += ": missing " + " and ".join(missing)
                 check["message"] += " " + reason + "; manual check required."
             continue
+        if (
+            key in {"location", "facilities"}
+            and judgement.status == "complete"
+            and check["status"] not in {"issue", "unable"}
+        ):
+            sections = extracted.get("risk_sections", [])
+            module_values = [
+                re.sub(r"\W+", "", text.split(":", 1)[1]).casefold()
+                for text in extracted.get("module_code_context", [])
+                if ":" in text
+            ]
+            if key == "location" and any(
+                not s["location"]
+                and re.sub(r"\W+", "", s["area_activity"]).casefold() in module_values
+                for s in sections
+            ):
+                check.update(
+                    status="review",
+                    message="An Area/Activity entry repeats a value labelled as a course/module code. The evidence does not establish that it identifies a room or process; confirm the intended location/activity manually.",
+                )
+                continue
+            if any(s.get("association_uncertain") for s in sections) or any(
+                not any(
+                    re.sub(r"\s+", " ", value).strip().casefold()
+                    in re.sub(r"\s+", " ", quote).casefold()
+                    for quote in verified
+                    for value in (s["area_activity"], s["location"])
+                    if value.strip()
+                )
+                for s in sections
+            ):
+                check.update(
+                    status="review",
+                    message="The AI did not establish each RA section's location and activity association. Inspect the separate sections manually.",
+                )
+                continue
+        if (
+            key == "facilities"
+            and concern == "location_specificity"
+            and check["status"] not in {"issue", "unable"}
+        ):
+            check.update(
+                status="skipped",
+                blocked_by="location_specificity",
+                message="Location specificity is handled by Specific area or activity. No separate activities–facilities conflict was established.",
+            )
+            continue
         # Fixed failures and known rule flags cannot be waived by the model.
         # A confirmed non-H&S concern can be escalated for student correction.
         protected = (
@@ -488,6 +570,7 @@ def apply_ai(checks, extracted, student):
                 key == "hs_relevance"
                 and check["message"].startswith("Potential")
                 and judgement.status != "issue"
+                and not (concern == "mixed_hs" and judgement.status == "review")
             )
             or (
                 key == "entry_quality"
@@ -496,7 +579,22 @@ def apply_ai(checks, extracted, student):
             )
         )
         if not protected:
-            check["status"] = judgement.status
+            potential_non_hs = key == "hs_relevance" and check["message"].startswith(
+                "Potential"
+            )
+            if potential_non_hs:
+                check["potential_non_hs_flag"] = check["message"]
+            check["status"] = (
+                "moderator"
+                if key == "hs_relevance"
+                and concern == "mixed_hs"
+                and judgement.status in {"issue", "review"}
+                and not (potential_non_hs and judgement.status == "issue")
+                else "review"
+                if key == "entry_quality" and concern in {"name_variation", "lab_code"}
+                else judgement.status
+            )
+            check["concern"] = concern
             check["message"] = judgement.explanation[:3000]
             check["source"] = "AI"
             from .review_policy import checking_version

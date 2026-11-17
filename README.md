@@ -4,6 +4,56 @@ Evaluation reference: **Validation baseline v1 — 17 November 2026**, Git tag
 `validation-baseline-v1`. See [VALIDATION_BASELINE.md](VALIDATION_BASELINE.md)
 and [CHANGELOG.md](CHANGELOG.md) for scope, versions and verification.
 
+Development on `codex/validation-v2` follows [TODO.md](TODO.md). The v2
+changes accept inserted middle names when the first name and full submitted
+surname match, preserve ambiguous name variants for review, stop blank titles
+from borrowing risk-table headings, and recognise scoped `Name:` sign-off labels.
+Persons-at-risk entries must identify people or groups; counts alone are incomplete.
+Readable ratings may place a band before the score, in square brackets or on a
+following line. Ranges and calculations without an entered result remain for
+review. Explicitly wholly unused/N/A rows do not require ratings or block other
+score comparisons; unused-row cleanup is a separate moderator judgement.
+Audit statistics show definite-outcome coverage independently of agreement.
+These changes are development fixes, not new validation evidence. Existing
+approvals are not transferred to the changed checking version, and saved audit
+snapshots and baseline findings are not rewritten to apply these fixes.
+
+Version 2 also keeps separate RA sections with their own locations and risk rows,
+accepts a dedicated Location field, and uses the agreed computer-activity interpretation.
+Course/module codes do not establish a room by their shape. Clear continuation
+hazards may share their parent activity within a table, with the association shown
+in evidence. Word highlights and explicit bold contrast, PDF bold contrast, and
+isolated vector risk-selection boxes are supported; unclear placement/marks stay
+manual. Floating Word text is associated only where its field placement can be
+established; otherwise missing-field claims need review.
+
+Specialist answers misplaced in reference fields or qualified with extra wording
+receive a specific moderator-judgement explanation. Unchanged blank primary
+answers remain issues. Accepting a misplaced Yes answer retains Supervisor check
+and its supporting-assessment feedback. Unrecognised questionnaire coverage is
+manual, rather than inferred from hazard headings. Missing ethics forms receive
+one form-level finding with dependent checks skipped, while uncertain extraction
+or alternative templates require inspection.
+
+After comparing audits, expand a check and use **Record agreed interpretation**
+to classify a human error caught by the tool, a tool error, an interpretation
+disagreement, an audit recording/category gap, or an unresolved case. Enter a
+reason. These records remain separate from the audit and automated snapshot;
+statistics show their counts against all audited cases without rewriting initial
+agreement. The audit's **Other corrections not covered by the checks** box records
+feedback that did not fit the rubric. These research records do not change
+moderation outcomes, automation approvals or student feedback.
+Earlier private `evaluation-decisions.json` records also appear read-only, with
+their original classifications, reasons and separate per-check counts. They are
+not converted into new adjudications or treated as validation of changed checks.
+
+The student self-checker remains a proposal. Its recorded requirement is to ask
+students to remove project-only consequences (such as milestone delays) while
+retaining their own relevant health-and-safety descriptions, and to correct
+technical rating/answer-placement defects. This moderator update does not implement
+a student-facing application. Synthetic tests and mocked AI verify implementation;
+fresh independent evaluation is still needed before approving the changed checks.
+
 A local Django app for reviewing completion of KB6060 risk assessment and ethics
 forms downloaded as a ZIP from Turnitin/Blackboard.
 
@@ -383,35 +433,38 @@ current browser filters. Formula-like input is exported as text.
 - Check both risk assessment and ethics forms for correct completion.
 - Require Low Risk ethics, with Medium unselected.
 - Compare the assessor with the submitting student's identity from ZIP metadata.
-- Require Area/Activity to identify a clear manufacturing process, test procedure,
+- Require Area/Activity or a dedicated Location field to identify a clear manufacturing process, test procedure,
   or named room/laboratory. Rules flag blank fields; AI assesses every nonblank
   entry by meaning, allowing equivalent terms and abbreviations without an approved
-  list. For computer-only projects, identify a workstation or workspace such as
-  university computer labs, a library workspace, home office or PC at home.
-  Equivalent descriptions are accepted by meaning; a named room is not required.
+  list. For a computer-work RA section, a clear computer-based activity description
+  is sufficient; a named workstation or room is not required. Meaningful workspaces
+  such as computer labs, a library workspace, home office or PC at home also qualify.
   Bare "home" or generic "Design/Simulation" needs correction. The Area/Activity
-  entry itself must supply the workspace/setup or a specific process/procedure;
+  entry or its dedicated Location field must supply a meaningful activity,
+  workspace/setup or a specific process/procedure;
   AI must not borrow missing CAD/CFD or other specifics from elsewhere to pass it.
   AI must use actual RA and ethics activity evidence to establish
-  computer-only work, without planned physical work (including conditional work),
+  computer-only work in that section. Separately assessed physical work, including conditional work,
+  belongs with its own RA section,
   rather than infer it from the title. Missing or ambiguous activity evidence
   remains manual. Blank locations remain issues. Generic locations for physical
   work still require a clearer process, procedure or workspace. Without AI,
-  the content assessment remains manual. Older AI location assessments are marked
-  for reassessment under this rule, preserving findings and moderator decisions.
+  the content assessment remains manual. Version 2 does not silently refresh frozen
+  evaluation findings or run AI on saved batches.
   No approved lab list is required.
   "Engineering laboratories" is too generic for physical work, even when a
-  university/city and computer facilities are also named. The Area/Activity entry
+  university/city and computer facilities are also named. The Area/Activity or Location entry
   must name a lab/room or identify a specific process/procedure itself. For
   confirmed computer-only work, stated university computer facilities suffice;
   unused generic laboratory wording does not create a requirement for a named lab.
   Conditional physical work is included; unclear activities remain manual.
 - Compare the workspace with RA activities/equipment and ethics research activities.
-  The separate activities–facilities check reports clear, evidence-backed missing
-  or incompatible workspaces as Issue found; borderline/ambiguous comparisons
+  The separate activities–facilities check reports clear, evidence-backed conflicts
+  between workspaces and activities as Issue found. Missing/vague location specificity
+  belongs to the location check; borderline/ambiguous comparisons
   and unverified evidence remain Manual check. Extraction failures alone do not
-  establish a student error. Computer-only work still needs a stated workstation
-  or workspace; a generic activity label alone does not supply one. The check
+  establish a student error. A clear computer-activity section does not require a
+  named workstation. The check
   distinguishes simulation-only projects from physical work, and requires evidence
   from both the location and activity descriptions before accepting an AI finding.
   It does not certify room suitability. Without AI it remains a manual check.
@@ -439,6 +492,9 @@ current browser filters. Formula-like input is exported as text.
   manual review. Highlighted Yes specialist answers still require supporting
   assessment review. Highlighting in a reference field does not answer the Y/N
   question. Evidence and Excel findings identify the interpreted highlighted choice.
+  Explicit bold contrast is also recognised in Word/PDF; inherited styling alone
+  is not a selection. Interpretable reference-field answers require moderator
+  judgement about placement, retaining supporting-assessment follow-up for Yes.
 - Flag missing fields, unchanged example rows and inappropriate entries.
   Standalone template word-limit labels, including split fragments such as
   `words maximum).`, are excluded from response extraction and AI text.
@@ -480,6 +536,8 @@ current browser filters. Formula-like input is exported as text.
 - Clear non-H&S hazards confirmed by evidence-backed AI are Issue found and
   require student correction. Potential rule flags without AI confirmation and
   borderline or ambiguous judgements remain Manual check.
+  Borderline mixtures of health effects and minor project-only wording use Needs
+  moderator review; a confirmed protected non-H&S rule finding remains Issue found.
   Older rule flags with appended AI observations are marked for rechecking;
   use Run pending / retry failed AI checks to apply the updated status logic.
   The review page shows the number of pending AI checks when any are waiting,
@@ -611,3 +669,9 @@ not change workflow mode, override saved findings, remove uncertainty or start A
 Actions and previous approval details remain in the settings history. Repeated
 identical approval requests do not duplicate that history. Study settings remains
 available to manage approvals separately.
+
+Use **Edit audit** on the audit overview to correct a saved outcome. The latest
+selections and notes are prefilled. Saving appends a revision and preserves the
+original automated snapshot; previous audit versions remain stored and the
+submission counts once. Changes made after seeing tool results are amendments,
+not new independent validation observations.

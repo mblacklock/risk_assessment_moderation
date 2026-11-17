@@ -2,9 +2,52 @@
 
 import hashlib
 import json
+from collections import Counter
 
 from .attempts import select_attempts
 from .criteria import CRITERIA, REMINDER_CHECKS, STATUSES
+
+ADJUDICATIONS = {
+    "human_error": "Human error caught by the tool",
+    "tool_error": "Tool error",
+    "interpretation": "Rubric / interpretation disagreement",
+    "audit_mapping": "Audit recording / category mapping gap",
+    "unresolved": "Unresolved",
+    "agreement": "Confirmed agreement",
+}
+
+
+def historical_adjudications(review):
+    """Read the earlier private evaluation log without converting or rewriting it."""
+    from . import store
+
+    path = store.review_dir(review["id"]) / "evaluation-decisions.json"
+    if not path.exists():
+        return []
+    try:
+        if path.stat().st_size > 2 * 1024 * 1024:
+            raise ValueError("Evaluation decision log exceeds the read limit.")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(data, dict)
+            or data.get("review_id") != review["id"]
+            or not isinstance(data.get("adjudications"), list)
+        ):
+            raise ValueError("Evaluation decision log has an unexpected structure.")
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(
+            "The earlier evaluation decision log could not be read."
+        ) from error
+    return [
+        record
+        for record in data["adjudications"]
+        if isinstance(record, dict)
+        and all(
+            isinstance(record.get(key), str)
+            for key in ("student_number", "check", "classification")
+        )
+        and (record.get("reason") is None or isinstance(record["reason"], str))
+    ]
 
 
 def audit_overview(review):
@@ -65,11 +108,21 @@ def summarise_cases(cases):
         if c["human_status"] in definite and c["tool_status"] in definite
     ]
     agreed = sum(c["same"] for c in pairs)
+    tool_definite = sum(c["tool_status"] in definite for c in cases)
     skipped = sum("skipped" in {c["human_status"], c["tool_status"]} for c in cases)
+    historical = Counter(
+        c["historical_decision"]["classification"]
+        for c in cases
+        if c.get("historical_decision")
+    )
     return {
         "total": len(cases),
         "compared": len(pairs),
         "agreed": agreed,
+        "tool_definite": tool_definite,
+        "coverage": f"{tool_definite}/{len(cases)} ({100 * tool_definite / len(cases):.1f}%)"
+        if cases
+        else "No audited cases",
         "agreement": f"{agreed}/{len(pairs)} ({100 * agreed / len(pairs):.1f}%)"
         if pairs
         else "No definite pairs",
@@ -95,6 +148,23 @@ def summarise_cases(cases):
             c["human_status"] not in definite | {"skipped"} for c in cases
         ),
         "skipped": skipped,
+        "adjudicated": sum(bool(c.get("adjudication")) for c in cases),
+        "historical_adjudicated": sum(historical.values()),
+        "historical_counts": [
+            {"label": label, "count": count}
+            for label, count in sorted(historical.items())
+        ],
+        "adjudication_counts": [
+            {
+                "classification": key,
+                "label": label,
+                "count": sum(
+                    c.get("adjudication", {}).get("classification") == key
+                    for c in cases
+                ),
+            }
+            for key, label in ADJUDICATIONS.items()
+        ],
     }
 
 
@@ -143,7 +213,11 @@ def comparison_token(review):
         "review": review["id"],
         "details": review.get("audit_details", {}),
         "audits": [
-            {"submission": row["submission"]["id"], "audit": row["audit"]}
+            {
+                "submission": row["submission"]["id"],
+                "audit": row["audit"],
+                "adjudications": row["submission"].get("audit_adjudications", []),
+            }
             for row in state["audit_rows"]
         ],
     }

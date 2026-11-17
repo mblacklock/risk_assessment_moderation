@@ -1,5 +1,73 @@
 # Changelog
 
+## After validation baseline v1 — 17 November 2026
+
+### Version 2 development
+
+- Accept inserted middle names while requiring the submitted first name and full
+  surname. Shortened/ambiguous names still need review.
+- Stop blank project titles from taking risk-table headings as answers. Accept
+  `Name:` labels within the correct student/supervisor risk sign-off section.
+- Require persons-at-risk entries to identify people/groups, rather than counts alone.
+- Read prefix, square-bracket and wrapped risk-band labels. Keep ranges, invalid
+  annotations and calculations without results unresolved.
+- Exclude wholly unused/N/A rows from ratings and score comparisons, retaining
+  row numbers and independently verified nonreducing scores. Present unused-row
+  cleanup for moderator judgement rather than requesting numeric ratings.
+- Show tool definite-outcome coverage alongside agreement, including source and
+  version breakdowns. Coverage includes definite tool outcomes even where the
+  auditor was uncertain; agreement still uses comparable definite pairs only.
+- Preserve the frozen baseline and saved evaluations. No automatic transfer of
+  approvals to the changed checking version and no automatic AI calls.
+- Associate locations and risk rows with separate RA sections, including PDF
+  page/table positions. Accept dedicated Location fields and clear computer-work
+  activities. Keep incomplete/unverified section associations manual. An explicit
+  course/module code is not accepted as a room solely on an AI assertion.
+- Preserve clear continuation hazards, shared-activity evidence and original
+  tables. Improve multi-page PDF table retention without turning extraction gaps
+  into student errors.
+- Recognise explicit Word/PDF bold contrast as well as existing highlighting;
+  account for inherited Word bold styling. Read isolated vector risk checkboxes,
+  retaining uncertainty for ambiguous drawings, annotations and image overlap.
+- Recognise equivalent administrative question wording without allowing duplicate
+  copies of one question to substitute for the other.
+- Give intelligible-but-misplaced or qualified specialist answers specific
+  moderator explanations, preserve Yes supporting-assessment follow-up when
+  placement is accepted, and keep ambiguous questionnaire coverage manual.
+- Associate nearby paragraph/character-anchored Word textbox titles with their
+  field; uncertain floating text requires inspection rather than a missing-title
+  finding. Keep suitability with the field-entry check.
+- Route borderline mixed H&S wording to Needs moderator review while protecting
+  confirmed non-H&S rule findings. Exclude duplicate example-row findings from
+  field-entry quality. Name variations and suspected lab-code conflicts remain
+  for identity/location clarification, rather than unverified definite errors.
+- Report a missing ethics form once and skip dependent checks; unrecognised
+  templates and incomplete extraction require manual inspection.
+- Add a separate place for audit corrections outside the rubric, and reasoned
+  case adjudications with history and stale-request protection. Report human
+  errors caught by the tool, tool errors, interpretation disagreements, mapping
+  gaps and unresolved cases separately from unchanged raw agreement statistics.
+- Record conditional student self-checker requirements without implementing or
+  describing that proposed application as an available feature.
+- Display earlier private evaluation-log decisions read-only with their original
+  classifications and separate per-check counts. Do not rewrite or reinterpret
+  the historical log. Preserve legacy generated-feedback signatures when the new
+  follow-up metadata is absent; real follow-up changes still invalidate stale text.
+
+Verification: 454 Python tests and 10 Node workflow tests passed; Ruff checks,
+formatting, Django system checks and diff checks passed. AI was mocked in tests;
+no paid live AI evaluation was performed. All 47 earlier evaluation-log decisions
+were confirmed readable without rewriting the private log.
+
+### Changed
+
+- Saved audits reopen with their outcomes and notes filled in. Corrections append
+  a version while preserving the earlier audit and original automated snapshot.
+  The submission is still counted once.
+
+- Moved **Mark remaining checks Complete** below the audit checklist. This is a
+  layout change; checking rules, audit outcomes and the frozen baseline tag are unchanged.
+
 ## Validation baseline v1 — 17 November 2026
 
 This entry summarises the accumulated changes in the current working version.
