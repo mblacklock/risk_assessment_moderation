@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 
 from django.conf import settings
 
+from .attempts import select_attempts
+
 LOCK = threading.RLock()
 
 
@@ -55,7 +57,10 @@ def list_reviews():
             review = json.loads(path.read_text(encoding="utf-8"))
             reviews.append(
                 {k: review[k] for k in ("id", "title", "created", "state")}
-                | {"count": len(review["submissions"])}
+                | {
+                    "count": len(select_attempts(review).active),
+                    "latest_only": review.get("latest_only", False),
+                }
             )
         except (ValueError, KeyError, OSError):
             continue

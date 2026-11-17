@@ -8,7 +8,14 @@ from .documents import MAX_ZIP
 class UploadForm(forms.Form):
     title = forms.CharField(max_length=150, initial="KB6060 · Risk assessment & ethics")
     archive = forms.FileField(label="Turnitin / Blackboard ZIP")
-    use_ai = forms.BooleanField(required=False, label="Include AI language checks")
+    use_ai = forms.BooleanField(
+        required=False, initial=True, label="Include AI language checks"
+    )
+    latest_only = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Analyse only the latest submission per student",
+    )
 
     def clean_archive(self):
         file = self.cleaned_data["archive"]
@@ -32,16 +39,13 @@ class DecisionForm(forms.Form):
         choices=[
             ("", "Keep automated result"),
             ("complete", "Complete"),
+            ("skipped", "Skipped"),
             ("issue", "Issue found"),
             ("review", "Manual check"),
+            ("supervisor", "Supervisor check"),
+            ("moderator", "Needs moderator review"),
             ("unable", "Unable to check"),
         ],
         required=False,
     )
     note = forms.CharField(max_length=3000, required=False, widget=forms.Textarea)
-
-    def clean(self):
-        cleaned = super().clean()
-        if cleaned.get("decision") and not cleaned.get("note", "").strip():
-            self.add_error("note", "Record a note explaining your decision.")
-        return cleaned

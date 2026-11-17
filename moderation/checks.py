@@ -2,8 +2,8 @@
 
 import re
 
-from .criteria import CRITERIA, result
-from .documents import normalise
+from .criteria import CRITERIA, WORD_LIMIT_REMINDER, result
+from .documents import highlighted_yes_no, normalise, word_limit_guidance
 
 LABELS = (
     r"Student Name|Supervisor Name|Project Title|Assessment Title|Assessor|"
@@ -32,19 +32,189 @@ def numeric_rating(value):
     """Read the entered score, including the result of an explicit calculation."""
     value = value.strip()
     if "=" in value:
-        value = value.rsplit("=", 1)[1].strip()
-    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(?:\(\s*[LMH]\s*\)|[LMH])?", value, re.I)
+        calculation = re.fullmatch(
+            r"\d+(?:\.\d+)?\s*[x×*]\s*\d+(?:\.\d+)?\s*=\s*(.+)", value, re.I
+        )
+        if calculation is None:
+            return None
+        value = calculation[1].strip()
+    match = re.fullmatch(
+        r"(\d+(?:\.\d+)?)\s*(?:\(?\s*(?:low|medium|high|[LMH])\s*\)?)?", value, re.I
+    )
     return float(match[1]) if match else None
 
 
+def rating_entries(value):
+    """Each nonblank line is one entered score; never pick just the last result."""
+    entries = [line.strip() for line in value.splitlines() if line.strip()]
+    scores = [numeric_rating(entry) for entry in entries]
+    return scores if entries and all(score is not None for score in scores) else None
+
+
+def rating_checks(rows):
+    missing, ambiguous, mismatched, unchanged = [], [], [], []
+    missing_details = []
+    extracts = []
+    comparisons = 0
+    for index, row in enumerate(rows, 1):
+        cells = [row[column] if len(row) > column else "" for column in (4, 5, 6, 8)]
+        extracts.append(
+            {
+                "location": f"Risk row {index}",
+                "text": " | ".join(
+                    f"{label}: {value}"
+                    for label, value in zip(
+                        ("Severity", "Likelihood", "Initial scores", "Final scores"),
+                        cells,
+                        strict=True,
+                    )
+                ),
+            }
+        )
+        missing_fields = [
+            label
+            for label, cell in zip(
+                (
+                    "Severity",
+                    "Likelihood",
+                    "Risk Rating (initial score)",
+                    "Final Result (post-control score)",
+                ),
+                cells,
+                strict=True,
+            )
+            if not re.search(r"\d", cell)
+        ]
+        if missing_fields:
+            missing.append(str(index))
+            missing_details.append(
+                f"Row {index}: enter a numeric value for "
+                + ", ".join(missing_fields)
+                + "."
+            )
+            continue
+        values = [rating_entries(cell) for cell in cells]
+        if any(value is None for value in values):
+            ambiguous.append(str(index))
+            continue
+        counts = [len(value) for value in values]
+        if len(set(counts)) != 1:
+            mismatched.append(
+                f"Row {index}: {counts[0]} severity, {counts[1]} likelihood, {counts[2]} initial and {counts[3]} final entries"
+            )
+            continue
+        for entry, (initial, final) in enumerate(
+            zip(values[2], values[3], strict=True), 1
+        ):
+            comparisons += 1
+            if final >= initial:
+                label = (
+                    f"Row {index}" if counts[2] == 1 else f"Row {index}, entry {entry}"
+                )
+                unchanged.append(f"{label}: initial {initial:g}, final {final:g}")
+    completion_notes = []
+    if missing:
+        completion_notes.append(
+            " ".join(missing_details)
+            + " Complete the missing rating fields in each affected row. Final Result records the risk remaining after the listed controls; a final score alone is sufficient and a multiplication expression is optional."
+        )
+    if mismatched:
+        completion_notes.append(
+            "Rating entry counts do not match. "
+            + "; ".join(mismatched)
+            + ". Correct or clarify which ratings belong together."
+        )
+    if ambiguous:
+        completion_notes.append(
+            "Multiple or unclear rating entries could not be read reliably in rows: "
+            + ", ".join(ambiguous)
+            + ". Check the original and the pairing of ratings manually."
+        )
+    ratings = result(
+        "ratings",
+        "issue"
+        if missing or mismatched
+        else "review"
+        if ambiguous
+        else "complete"
+        if rows
+        else "unable",
+        " ".join(completion_notes)
+        if completion_notes
+        else "Numeric severity, likelihood, initial rating and final result are present with matching entry counts."
+        if rows
+        else "No readable ratings found.",
+        extracts,
+    )
+    notes = []
+    if unchanged:
+        notes.append(
+            "Final ratings must be lower than initial ratings. "
+            + "; ".join(unchanged)
+            + "."
+        )
+    if mismatched:
+        notes.append(
+            "Rating entry counts do not match. "
+            + "; ".join(mismatched)
+            + ". Correct or clarify the entries before comparing these rows."
+        )
+    if missing:
+        notes.append(
+            "Comparison skipped for rows: "
+            + ", ".join(missing)
+            + ". Numeric values are missing or unreadable. Complete the fields identified by Risk ratings completed before comparing these scores."
+        )
+    if ambiguous:
+        notes.append(
+            "Rating entries or their pairing need manual review in rows: "
+            + ", ".join(ambiguous)
+            + "."
+        )
+    if comparisons:
+        notes.append(
+            f"Compared {comparisons} initial/final score pairs in listed order; substantive hazard/control alignment remains for the supervisor."
+        )
+    reduction = result(
+        "risk_reduction",
+        "issue"
+        if unchanged or mismatched
+        else "review"
+        if ambiguous
+        else "skipped"
+        if missing
+        else "unable"
+        if not rows
+        else "complete",
+        " ".join(notes) if notes else "No readable risk ratings to compare.",
+        extracts,
+    )
+    if reduction["status"] == "skipped":
+        reduction["blocked_by"] = "ratings"
+    if reduction["status"] == "complete":
+        reduction["message"] = (
+            "Final ratings are lower than the entered initial ratings in every matched entry. "
+            + reduction["message"]
+        )
+    return ratings, reduction
+
+
 def field(paragraphs, label):
-    separator = r"\s*:?\s*" if label.endswith("Name") else r"\s*:\s*"
+    separator = (
+        r"(?:\s*:\s*|\s+(?=\d))"
+        if label == "Date"
+        else r"\s*:?\s*"
+        if label.endswith("Name")
+        else r"\s*:\s*"
+    )
     pattern = re.compile(r"(?<!\w)" + label + separator + r"(.*)", re.I)
     for index, p in enumerate(paragraphs):
         match = pattern.search(p["text"])
         if not match:
             continue
-        value = re.split(r"(?:^|\s+)(?:" + LABELS + r")\s*:", match[1], flags=re.I)[0]
+        value = re.split(
+            r"(?:^|\s+)(?:(?:" + LABELS + r")\s*:|Date\s+(?=\d))", match[1], flags=re.I
+        )[0]
         if value.strip():
             return value.strip(), p
         if index + 1 < len(paragraphs):
@@ -68,6 +238,13 @@ def evidence(*paragraphs):
         if p is None:
             continue
         extract = {"location": p.get("ref", ""), "text": p["text"][:1800]}
+        choice = highlighted_yes_no(p)
+        if choice:
+            extract["selection_note"] = (
+                "Highlight selection is ambiguous; inspect the original."
+                if choice == "ambiguous"
+                else "Highlighted choice: " + choice.title()
+            )
         if p.get("images"):
             extract["images"] = list(dict.fromkeys(p["images"]))
         if extract not in extracts:
@@ -81,11 +258,12 @@ def area_activity_check(value, paragraph):
         "location",
         "review" if value.strip() else "issue",
         "Area/Activity needs a content assessment: it must identify a clear "
-        "manufacturing process, test procedure or named room. Review manually "
-        "if AI is unavailable."
+        "manufacturing process, test procedure or named room. An identified computer "
+        "workstation/workspace (e.g. home office or PC at home) is acceptable when RA and ethics activities confirm computer-only "
+        "work. Review manually if AI is unavailable."
         if value.strip()
         else "Area/Activity is missing. Specify a clear manufacturing process, "
-        "test procedure or named room.",
+        "test procedure, named room or an appropriate computer-work location.",
         evidence(paragraph),
     )
 
@@ -123,6 +301,16 @@ def combine_signoff(key, scope, name_label, date=None, name_required=True):
     image_paragraphs = []
     if sig_p:
         idx = scope.index(sig_p)
+        if idx > 0 and name_required and name_p and title_p:
+            preceding = scope[idx - 1]
+            if (
+                preceding["images"]
+                and not preceding["text"].strip()
+                and scope.index(name_p) < idx - 1
+                and scope.index(title_p) < idx - 1
+            ):
+                has_image = True
+                image_paragraphs.append(preceding)
         for p in scope[idx + 1 : idx + 3]:
             if re.match(r"^(Supervisor sign|Student sign|Date|NB)\b", p["text"], re.I):
                 break
@@ -138,14 +326,32 @@ def combine_signoff(key, scope, name_label, date=None, name_required=True):
         missing.append("signature")
     if not date_value:
         missing.append("date")
-    return result(
+    check = result(
         key,
         "issue" if missing else "complete",
         "Missing: " + ", ".join(missing) + "."
         if missing
+        else "Required sign-off fields are present, including an embedded signature image. "
+        "Signature authenticity is not assessed."
+        if has_image
         else "Required sign-off fields are present. Signature authenticity is not assessed.",
         evidence(name_p, title_p, sig_p, *image_paragraphs, date_p),
     )
+    check["signature_presence"] = (
+        "image"
+        if has_image
+        else "typed"
+        if signature
+        else "blank"
+        if sig_p and sig_p.get("signature_field_blank")
+        else "unknown"
+    )
+    if "signature" in missing and sig_p and sig_p.get("signature_drawing_uncertain"):
+        check.update(
+            status="review",
+            message="A drawing is present near the signature field, but its placement or format could not be verified. Inspect the original; signature presence is uncertain.",
+        )
+    return check
 
 
 def check_documents(documents, student):
@@ -176,7 +382,7 @@ def check_documents(documents, student):
             (
                 i
                 for i, p in enumerate(doc_ps[:split])
-                if re.match(r"Date\s*:", p["text"], re.I)
+                if re.match(r"Date(?:\s*:|\s+\d)", p["text"], re.I)
             ),
             0,
         )
@@ -259,64 +465,49 @@ def check_documents(documents, student):
         {"location": f"Risk row {idx}", "text": " | ".join(row)[:1800]}
         for idx, row in enumerate(risk_rows, 1)
     ]
-    missing_cells = [
-        str(i)
-        for i, row in enumerate(risk_rows, 1)
-        if any(not cell.strip() for cell in row[:9]) or len(row) < 9
-    ]
+    descriptive_fields = (
+        (
+            1,
+            "Activity/equipment/materials",
+            "Describe the activity, equipment or materials involved.",
+        ),
+        (2, "Hazard", "Identify the health-and-safety hazard."),
+        (3, "Persons at risk", "Identify who could be harmed."),
+        (
+            7,
+            "Control Measures Required",
+            "Describe the measures used to control the stated hazard.",
+        ),
+    )
+    incomplete = []
+    required_instructions = set()
+    for index, row in enumerate(risk_rows, 1):
+        missing_labels = []
+        for column, label, instruction in descriptive_fields:
+            if len(row) <= column or not row[column].strip():
+                missing_labels.append(label)
+                required_instructions.add(instruction)
+        if missing_labels:
+            incomplete.append(
+                f"Row {index}: complete " + ", ".join(missing_labels) + "."
+            )
     checks["risk_table"] = result(
         "risk_table",
-        "issue" if not risk_rows or missing_cells else "complete",
-        "No readable risk rows found."
+        "issue" if not risk_rows or incomplete else "complete",
+        "No readable risk rows found. Complete the risk table with the activity/equipment/materials, hazard, persons at risk and control measures for each row."
         if not risk_rows
-        else "Incomplete risk rows: " + ", ".join(missing_cells)
-        if missing_cells
-        else f"{len(risk_rows)} risk rows have populated required columns.",
+        else " ".join(incomplete)
+        + " "
+        + " ".join(
+            instruction
+            for _, _, instruction in descriptive_fields
+            if instruction in required_instructions
+        )
+        if incomplete
+        else f"{len(risk_rows)} risk rows have populated activity, hazard, persons-at-risk and control-measures fields. Ratings are checked separately.",
         table_evidence,
     )
-    bad_ratings = []
-    for idx, row in enumerate(risk_rows, 1):
-        if len(row) < 9 or any(
-            not re.search(r"\d", cell) for cell in row[4:7] + row[8:9]
-        ):
-            bad_ratings.append(str(idx))
-    checks["ratings"] = result(
-        "ratings",
-        "issue" if bad_ratings else "complete" if risk_rows else "unable",
-        "Missing numeric values in risk rows: " + ", ".join(bad_ratings)
-        if bad_ratings
-        else "Numeric severity, likelihood, initial rating and final result are present."
-        if risk_rows
-        else "No readable ratings found.",
-        table_evidence,
-    )
-    unchanged, unreadable = [], []
-    for idx, row in enumerate(risk_rows, 1):
-        initial = numeric_rating(row[6]) if len(row) > 6 else None
-        final = numeric_rating(row[8]) if len(row) > 8 else None
-        if initial is None or final is None:
-            unreadable.append(str(idx))
-        elif final >= initial:
-            unchanged.append(f"Row {idx}: initial {initial:g}, final {final:g}")
-    checks["risk_reduction"] = result(
-        "risk_reduction",
-        "issue"
-        if unchanged
-        else "unable"
-        if unreadable or not risk_rows
-        else "complete",
-        "Final ratings must be lower than initial ratings. "
-        + "; ".join(unchanged)
-        + (". Cannot compare rows: " + ", ".join(unreadable) if unreadable else ".")
-        if unchanged
-        else "Cannot compare initial and final ratings in rows: "
-        + ", ".join(unreadable)
-        if unreadable
-        else "Final ratings are lower than the entered initial ratings in every row."
-        if risk_rows
-        else "No readable risk ratings to compare.",
-        table_evidence,
-    )
+    checks["ratings"], checks["risk_reduction"] = rating_checks(risk_rows)
     retained = [
         p
         for p in risk
@@ -342,11 +533,18 @@ def check_documents(documents, student):
         if "Generic to the University" in p["text"]
         or "related risk assessment that may require" in p["text"]
     ]
-    answers = [p["text"].rsplit("?", 1)[-1].strip() for p in admin_ps]
+    marked_answers = [highlighted_yes_no(p) for p in admin_ps]
+    answers = [
+        choice.title()
+        if choice in {"yes", "no"}
+        else p["text"].rsplit("?", 1)[-1].strip()
+        for p, choice in zip(admin_ps, marked_answers, strict=True)
+    ]
     unanswered = [
         str(index)
         for index, answer in enumerate(answers, 1)
-        if re.fullmatch(r"(?:Y\s*/\s*N|Yes\s*/\s*No)?\s*[.]?", answer, re.I)
+        if marked_answers[index - 1] != "ambiguous"
+        and re.fullmatch(r"(?:Y\s*/\s*N|Yes\s*/\s*No)?\s*[.]?", answer, re.I)
     ]
     answered = len(admin_ps) == 2 and all(
         re.fullmatch(r"(?:Y|N|Yes|No)\s*[.]?", answer, re.I) for answer in answers
@@ -379,27 +577,56 @@ def check_documents(documents, student):
             chunk.append(p)
         specialist_ps.extend(chunk)
         answer = " ".join(p["text"] for p in chunk).split(":", 1)[1]
+        answer = re.split(
+            r"Please list reference No\s*:", answer, maxsplit=1, flags=re.I
+        )[0]
         answer = re.sub(
             r"Y\s*/\s*N\??|Please list reference No\s*:", " ", answer, flags=re.I
         )
-        if re.search(r"\b(?:Y|Yes)\b", answer, re.I):
-            follow_up.append(label)
-        elif re.search(r"\b(?:if|unless|possibly|maybe)\b", answer, re.I):
+        marked_answer = highlighted_yes_no(risk[start])
+        if marked_answer == "ambiguous":
             ambiguous.append(label)
-        elif not re.search(r"\b(?:N|No)\b", answer, re.I):
+        elif marked_answer == "yes":
+            follow_up.append(label)
+        elif marked_answer == "no":
+            pass
+        elif re.fullmatch(r"[\s.?]*", answer):
             missing.append(label)
+        elif re.fullmatch(r"(?:Y|Yes)\s*[.]?", answer.strip(), re.I) or (
+            re.search(r"\b(?:Y|Yes)\b", answer, re.I)
+            and re.search(r"\b(?:if|when|unless)\b", answer, re.I)
+        ):
+            follow_up.append(label)
+        elif not re.fullmatch(r"(?:N|No)\s*[.]?", answer.strip(), re.I):
+            ambiguous.append(label)
     messages = []
     if follow_up:
         messages.append(
-            "Locate and review supporting assessments: " + ", ".join(follow_up) + "."
+            "Supervisor to locate and review supporting assessments: "
+            + ", ".join(follow_up)
+            + ". A Yes answer identifies follow-up, not a student completion error."
         )
     if ambiguous:
-        messages.append("Clarify conditional answers: " + ", ".join(ambiguous) + ".")
+        messages.append(
+            "Moderator to inspect unclear specialist answers in the original: "
+            + ", ".join(ambiguous)
+            + ". No reliable Yes/No answer could be established."
+        )
     if missing:
-        messages.append("Missing/unreadable answers: " + ", ".join(missing) + ".")
+        messages.append(
+            "Unanswered specialist questions: "
+            + ", ".join(missing)
+            + ". Select Yes or No in each primary answer field; unchanged Y/N options and answers misplaced in reference fields do not complete the question."
+        )
     add(
         "specialists",
-        "review" if follow_up or ambiguous else "issue" if missing else "complete",
+        "issue"
+        if missing
+        else "moderator"
+        if ambiguous
+        else "supervisor"
+        if follow_up
+        else "complete",
         " ".join(messages) or "All specialist assessments answered No.",
         *specialist_ps,
     )
@@ -473,6 +700,7 @@ def check_documents(documents, student):
             p
             for p in block
             if not p["text"].startswith(("Please ", "Describe ", "Standard phrases"))
+            and not word_limit_guidance(p["text"])
         ]
     missing_responses = [
         heading
@@ -487,30 +715,16 @@ def check_documents(documents, student):
         else "All five ethics response sections contain text.",
         *(p for ps in responses.values() for p in ps),
     )
-    counts = {
-        heading: len(
-            re.findall(
-                r"\b[\w]+(?:[-’'][\w]+)*\b",
-                " ".join(p["text"] for p in responses[heading]),
-            )
-        )
-        for heading in NARRATIVES[:3]
-    }
-    exceeded = [heading for heading, count in counts.items() if count > 200]
-    add(
-        "word_limits",
-        "issue" if exceeded else "complete" if not missing_responses else "unable",
-        "; ".join(f"{heading}: {count}/200 words" for heading, count in counts.items())
-        + ". Counts exclude template instructions; verify near-boundary cases.",
-    )
+    add("word_limits", "skipped", WORD_LIMIT_REMINDER)
     declarations = [
         p
         for p in ethics
         if p["text"].startswith(("☐", "☒", "☑", "I confirm"))
         and any(
-            phrase in p["text"]
+            phrase in p["text"].casefold()
             for phrase in (
-                "Data Management policy",
+                "data management policy",
+                "data retention schedule",
                 "health and safety policy",
                 "mandatory completion",
             )
@@ -550,7 +764,7 @@ def check_documents(documents, student):
         else "Risk assessment completed must be Yes only.",
         *physical,
     )
-    tutor = section(ethics, "Tutor sign off", "You must use this document")
+    tutor = section(ethics, "Tutor sign off", "Student Name")
     tutor_boxes = [selection(p) for p in tutor if selection(p) is not None]
     add(
         "tutor",
@@ -578,7 +792,9 @@ def check_documents(documents, student):
         statement,
     )
     dates = [
-        field([p], "Date") for p in ethics if re.match(r"Date\s*:", p["text"], re.I)
+        field(ethics[index : index + 2], "Date")
+        for index, p in enumerate(ethics)
+        if re.match(r"Date(?:\s*:|\s+\d)", p["text"], re.I)
     ]
     student_scope = section(ethics, "Student sign:", "Supervisor sign:")
     supervisor_scope = section(ethics, "Supervisor sign:", "\x00")
@@ -612,7 +828,8 @@ def check_documents(documents, student):
         "review",
         "Potential non-H&S hazards: " + "; ".join(non_hs)
         if non_hs
-        else "Language review is pending. Check hazards relate to health and safety; supervisor assesses adequacy.",
+        else "Check hazards relate to health and safety. Manual content assessment is required "
+        "unless a verified AI assessment is available; the supervisor assesses adequacy.",
     )
     checks["hs_relevance"]["evidence"] = table_evidence
     research_activities = responses["Research Activities"]
@@ -621,8 +838,10 @@ def check_documents(documents, student):
     ]
     checks["facilities"] = result(
         "facilities",
-        "review" if location and activity_text else "unable",
-        "Compare the stated workspace with the risk assessment activities/equipment "
+        "skipped" if not location.strip() else "review" if activity_text else "unable",
+        "Skipped because Area/Activity is blank. The missing entry is reported by Specific area or activity; consistency cannot be assessed until it is completed."
+        if not location.strip()
+        else "Compare the stated workspace with the risk assessment activities/equipment "
         "and ethics research activities. Physical experiments, fabrication or chemical "
         "handling need an identified space for that work; distinguish these from "
         "simulation-only projects. Manual review required unless an evidence-backed "
@@ -631,44 +850,77 @@ def check_documents(documents, student):
         else "The workspace or activity descriptions could not be read. Check the original form.",
         evidence(location_p) + table_evidence + evidence(*research_activities),
     )
+    if not location.strip():
+        checks["facilities"]["blocked_by"] = "location"
+        checks["facilities"]["evidence"] = evidence(location_p)
     bad_titles = []
+    project_titles = []
     for p in risk:
-        if "Job Title:" not in p["text"]:
+        if not re.search(r"\bJob Title\s*:", p["text"], re.I):
             continue
         job_title, _ = field([p], "Job Title")
-        if len(job_title.split()) > 12 or (
+        if (
             title
-            and len(normalise(job_title)) > 25
-            and normalise(job_title) in normalise(title)
+            and normalise(job_title)
+            and (
+                normalise(job_title) == normalise(title)
+                or (
+                    len(normalise(job_title)) > 25
+                    and normalise(job_title) in normalise(title)
+                )
+            )
         ):
+            project_titles.append(p)
+            bad_titles.append(p)
+        elif len(job_title.split()) > 12:
             bad_titles.append(p)
     add(
         "entry_quality",
-        "review",
-        "A job-title field may contain a project title."
+        "issue" if project_titles else "review",
+        "A job-title field contains the project title. Enter Student for the student "
+        "and a staff role for the supervisor."
+        if project_titles
+        else "A job-title field may contain a project title."
         if bad_titles
-        else "Language review is pending for inappropriate entries, placeholders and contradictory field content.",
+        else "Review job titles (Student for the student; a staff role for the supervisor), "
+        "inappropriate entries, placeholders and contradictory field content. Manual assessment "
+        "required unless an evidence-backed AI assessment is available.",
         *bad_titles,
     )
     if is_pdf:
+        uncertain = []
+        if not risk_rows or any(
+            doc["kind"] == "pdf"
+            and doc.get("tables")
+            and not doc.get("risk_table_reliable", False)
+            for doc in documents
+        ):
+            uncertain.extend(("risk_table", "ratings", "risk_reduction", "example"))
+        if len(states) != 3:
+            uncertain.append("declarations")
+        if len(tutor_boxes) != 3:
+            uncertain.append("tutor")
         for key in (
-            "risk_table",
-            "ratings",
-            "risk_reduction",
-            "example",
-            "low_risk",
-            "declarations",
-            "physical",
-            "tutor",
-            "supervisor_statement",
             "student_ra",
             "supervisor_ra",
             "student_ethics",
             "supervisor_ethics",
         ):
+            if checks[key]["status"] != "complete":
+                if checks[key].get("signature_presence") == "blank":
+                    checks[key]["message"] = (
+                        "Missing: signature. The PDF signature field is visibly blank."
+                    )
+                else:
+                    uncertain.append(key)
+        for key in uncertain:
             checks[key]["status"] = "review"
             checks[key]["message"] = (
-                "PDF layout, tick boxes or signature images require visual review. "
+                "Signature presence could not be established reliably from the PDF. "
+                "Inspect the signature area in the original; no missing-signature "
+                "conclusion has been verified."
+                if checks[key].get("signature_presence") == "unknown"
+                else "PDF evidence could not be read reliably for this check; inspect the original. "
                 + checks[key]["message"]
             )
     if not readable:

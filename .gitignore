@@ -13,6 +13,7 @@ htmlcov/
 
 # Student documents and generated review data must stay out of Git.
 *.zip
+*.doc
 *.docx
 *.pdf
 *.xlsx
@@ -29,3 +30,4 @@ staticfiles/
 .vscode/
 Thumbs.db
 .DS_Store
+tmp/pdfs/

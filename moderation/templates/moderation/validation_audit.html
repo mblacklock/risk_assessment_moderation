@@ -1,0 +1,13 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'moderation:validation_list' review.id %}">← Audit overview</a>
+<div class="page-heading"><div><h1>Independent audit</h1><p>{{ submission.name }} · {{ submission.number }}</p></div></div>
+<section class="panel upload-panel"><p>Open the originals and record your findings before looking at the tool results. This page hides automated findings and previous audits; it cannot undo prior exposure to them. Use unfamiliar submissions for independent validation.</p><ul>{% for file in submission.files %}<li><a href="{% url 'moderation:download' review.id submission.id file.id %}" target="_blank" rel="noopener">{{ file.name }}</a></li>{% endfor %}</ul>
+<form method="post" class="audit-form">{% csrf_token %}{{ form.non_field_errors }}
+{% if review.audit_details.auditor %}<p>Auditor: <strong>{{ review.audit_details.auditor }}</strong></p>{% else %}<p class="helper">You can add your name, total time and comments on the audit overview when you finish.</p>{% endif %}
+<div class="audit-shortcut"><button class="button secondary" type="button" data-audit-complete>Mark remaining checks Complete</button><p class="helper">After checking the original, use this to fill unanswered checks. Any corrections, supervisor follow-up or uncertainty already selected are kept. You can change any selection before saving.</p></div>
+{% regroup audit_fields by category as groups %}{% for group in groups %}<section class="audit-group"><h2>{{ group.grouper }}</h2>{% for item in group.list %}<fieldset class="audit-row{% if item.reminder %} reminder-only{% endif %}" {% if item.reminder %}disabled{% else %}data-audit-row{% endif %}><legend>{{ item.field.label }}</legend>{% if item.reminder %}<p class="helper">Reminder only — keep to the word limits stated on the form. Not assessed in this audit.</p>{% else %}{{ item.field.errors }}{{ item.field }}{% endif %}</fieldset>{% endfor %}</section>{% endfor %}
+<p>{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</p>
+<button class="button primary">Save audit & return to overview</button></form>
+<p class="helper">Each save retains a separate audit and an automated snapshot. It does not change moderation decisions, approve automation or run AI. Include passed cases and arrange independent second review of a defined subset.</p></section>
+{% endblock %}

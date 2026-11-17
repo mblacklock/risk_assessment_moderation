@@ -1,0 +1,10 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'moderation:review_process' review.id %}">← Choose workflow</a>
+<div class="page-heading"><div><h1>Validate the tool</h1><p>{{ review.title }}</p></div></div>
+{% if audit_saved %}<div class="notice" role="status">Submission audit saved. Tool results remain hidden until you choose Compare with tool.</div>{% endif %}
+{% if details_saved %}<div class="notice" role="status">Audit details saved.</div>{% endif %}
+<section class="panel upload-panel audit-details"><h2>Audit details</h2><p>One auditor for this batch. Record the total time and overall comments here, rather than timing each submission. You can start auditing immediately and add your name, total time and comments when you finish.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary">Save audit details</button></form></section>
+<section class="panel upload-panel audit-details"><h2>{{ audited_count }} of {{ audit_total }} submissions audited</h2><p>Finish saving all selected submission audits before revealing the tool results.</p>{% if comparison_ready %}<a class="button primary" href="{% url 'moderation:validation_comparison' review.id %}">Compare with tool</a>{% else %}<button class="button primary" disabled>Compare with tool</button>{% endif %}</section>
+<section class="panel upload-panel"><p>This list uses the batch's current attempt selection and hides tool outcomes. Choose your evaluation sample before examining results. Auditing previously tuned submissions does not make them independent validation cases.</p><ul>{% for row in audit_rows %}<li><a href="{% url 'moderation:validation_audit' review.id row.submission.id %}">{{ row.submission.name }} · {{ row.submission.number }} · {{ row.submission.submitted }}</a> · {% if row.audited %}Audited{% else %}Not audited{% endif %}</li>{% endfor %}</ul></section><p class="helper workflow-settings"><a href="{% url 'moderation:study_settings' review.id %}">Study settings</a> · Record approvals after validation.</p>
+{% endblock %}

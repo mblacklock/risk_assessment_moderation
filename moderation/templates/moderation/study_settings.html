@@ -1,0 +1,11 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'moderation:review_process' review.id %}">← Choose workflow</a>
+<div class="page-heading"><div><h1>Study settings</h1><p>{{ review.title }}</p></div></div>
+<section class="panel upload-panel study-settings"><h2>Checks approved for automatic use</h2>
+<p>After comparing the tool with independent staff audits, select the checks that the evidence supports using automatically. Leave unvalidated checks unticked.</p>
+<p>Completion checks and AI language judgements have separate approvals. These settings apply to this batch and do not change your chosen workflow.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary">Save approved checks</button></form>
+<details class="config-help"><summary>About approvals and versions</summary><p>Approving a check records your decision; it does not validate the check for you. Only matching, approved clear issues and supervisor follow-up bypass confirmation. Uncertain findings still require review.</p><p>A changed checking version or configured model requires renewed approval. Older results without matching version information still require confirmation. Settings changes preserve originals and review history, and do not run analysis or AI.</p><p class="helper">Checking version: {{ checking_version }}</p></details>
+</section>
+{% endblock %}

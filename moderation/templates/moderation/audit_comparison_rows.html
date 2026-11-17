@@ -1,0 +1,5 @@
+{% regroup results by category as groups %}
+{% for group in groups %}<section class="comparison-group" aria-label="{{ group.grouper }}"><h3>{{ group.grouper }}</h3>
+<div class="comparison-columns" aria-hidden="true"><span>Check</span><span>Your audit</span><span>Tool outcome</span></div>
+{% for result in group.list %}<details class="comparison-check{% if not result.same %} is-different{% endif %}"><summary><span class="comparison-check-name"><span class="comparison-disclosure" aria-hidden="true">▸</span>{{ result.label }}</span><span class="comparison-outcome"><small>Your audit</small><span class="pill {{ result.human_status }}">{{ result.human }}</span></span><span class="comparison-outcome"><small>Tool outcome</small><span class="pill {{ result.tool_status }}">{{ result.tool }}</span></span></summary><div class="comparison-explanation"><strong>Tool explanation</strong><p>{{ result.message|default:'No explanation recorded.' }}</p></div></details>{% endfor %}
+</section>{% endfor %}
