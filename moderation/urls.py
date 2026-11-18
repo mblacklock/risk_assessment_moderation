@@ -10,6 +10,7 @@ urlpatterns = [
         name="adjudicate_audit",
     ),
     path("", views.index, name="index"),
+    path("approvals/", views.global_approvals, name="global_approvals"),
     path("reviews/<uuid:review_id>/", views.review, name="review"),
     path(
         "reviews/<uuid:review_id>/audits/",

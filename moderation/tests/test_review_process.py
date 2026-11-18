@@ -106,32 +106,19 @@ def test_approved_flags_leave_queue_and_feedback_gate_but_uncertainty_blocks(
     assert not feedback_readiness(review, item)[0]
 
 
-def test_process_settings_require_evidence_preserve_history_and_do_not_run_ai(
+def test_old_study_settings_link_redirects_to_global_without_changing_review(
     workflow_review, client
 ):
     review = workflow_review
+    before = copy.deepcopy(review)
     url = reverse("moderation:study_settings", args=[review["id"]])
-    before = copy.deepcopy(review["submissions"])
-    response = client.get(url)
-    assert response.status_code == 200
-    payload = {
-        "mode": "routine",
-        "approvals": ["readable:Rule"],
-        "version": checking_version(),
-    }
-    response = client.post(url, payload)
-    assert response.status_code == 200
-    assert "reference" in response.context["form"].errors
-    assert store.load(review["id"])["submissions"] == before
-    response = client.post(url, {**payload, "reference": "Synthetic validation report"})
-    assert response.status_code == 302
-    saved = store.load(review["id"])
-    assert saved["submissions"] == before
-    assert saved.get("review_mode", "validation") == "validation"
-    assert len(saved["review_process_history"]) == 1
-    response = client.post(url, {**payload, "reference": "Report", "version": "stale"})
-    assert response.status_code == 200
-    assert len(store.load(review["id"])["review_process_history"]) == 1
+    for response in [
+        client.get(url),
+        client.post(url, {"approvals": ["readable:Rule"]}),
+    ]:
+        assert response.status_code == 302
+        assert response.url == reverse("moderation:global_approvals")
+    assert store.load(review["id"]) == before
 
 
 def test_independent_audit_hides_results_then_retains_comparison_without_moderating(

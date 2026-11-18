@@ -11,7 +11,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="{% url 'moderation:index' %}"><span class="brand-mark" aria-hidden="true">m<span>·</span></span>Project moderation</a>
-    <div class="topbar-meta"><span class="live-dot"></span> Local workspace <span class="divider">/</span> KB6060</div>
+    <div class="topbar-meta"><a href="{% url 'moderation:global_approvals' %}">Global approvals</a><span class="divider">/</span><span class="live-dot"></span> Local workspace <span class="divider">/</span> KB6060</div>
   </header>
   <main>{% block content %}{% endblock %}</main>
   <footer><span>Risk assessment & ethics · Completion review</span><span>Content adequacy and signature authenticity remain with the supervisor.</span></footer>

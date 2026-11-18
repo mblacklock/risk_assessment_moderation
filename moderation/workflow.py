@@ -24,7 +24,7 @@ def review_progress(check, review=None):
     ) == finding_fingerprint(check)
     if check["id"] in REMINDER_CHECKS:
         reviewed = False
-    from .review_policy import automatically_accepted
+    from .global_approvals import automatically_accepted
 
     automatic = automatically_accepted(review or {}, check) and not reviewed
     resolved = (reviewed or automatic) and effective_status(check) in {

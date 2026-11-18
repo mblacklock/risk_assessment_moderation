@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from . import global_approvals as shared_approvals
 from . import jobs, store
 from .ai import ai_work_counts, eligible_ai_checks
 from .attempts import select_attempts
@@ -761,103 +762,84 @@ def review_process(request, review_id):
             "error": error,
             "approved_count": sum(
                 value.get("version") == checking_version()
-                for value in data.get("automation_approvals", {}).values()
+                for value in shared_approvals.approvals(data).values()
             ),
         },
     )
 
 
-class StudySettingsForm(forms.Form):
-    approvals = forms.MultipleChoiceField(
-        required=False, widget=forms.CheckboxSelectMultiple
-    )
-    reference = forms.CharField(
-        required=False,
-        max_length=2000,
-        widget=forms.Textarea,
-        label="Validation evidence / approval reference",
-    )
-    version = forms.CharField(widget=forms.HiddenInput)
-
-    def clean(self):
-        data = super().clean()
-        if data.get("approvals") and not data.get("reference", "").strip():
-            self.add_error(
-                "reference",
-                "Record the validation evidence supporting these approvals.",
-            )
-        if data.get("version") != checking_version():
-            self.add_error(
-                None, "The checking version changed. Reload this page before saving."
-            )
-        return data
+@never_cache
+@require_http_methods(["GET", "POST"])
+def study_settings(request, review_id):
+    # Keep saved links working; approvals now have one workspace-wide owner.
+    return redirect("moderation:global_approvals")
 
 
 @never_cache
 @require_http_methods(["GET", "POST"])
-def study_settings(request, review_id):
-    data = get_review(review_id)
+def global_approvals(request):
     version = checking_version()
-    options = [
-        (f"{key}:{source}", f"{label} — {description}")
-        for key, label, _ in CRITERIA
-        if key not in REMINDER_CHECKS
-        for source, description in (
-            ("Rule", "completion check"),
-            ("AI", "AI language judgement"),
+    error = ""
+    try:
+        registry = shared_approvals.load()
+    except (OSError, ValueError, TypeError):
+        return HttpResponse(
+            "Global approvals could not be read. Restore the registry before editing approvals. Findings still require confirmation.",
+            status=503,
         )
-    ]
-    current = data.get("automation_approvals", {})
-    form = StudySettingsForm(
-        request.POST if request.method == "POST" else None,
-        initial={
-            "version": version,
-            "approvals": [
-                key for key, value in current.items() if value.get("version") == version
-            ],
-            "reference": data.get("automation_reference", ""),
-        },
-    )
-    form.fields["approvals"].choices = options
-    if request.method == "POST" and form.is_valid():
-
-        def change(review):
-            if review["state"] in {"running", "queued"}:
-                raise ValueError(
-                    "Wait for processing to finish before changing the review process."
-                )
-            record = {
-                "mode": review.get("review_mode", "validation"),
-                "version": version,
-                "reference": form.cleaned_data["reference"].strip(),
-                "approved": form.cleaned_data["approvals"],
-                "at": store.now(),
-            }
-            review.setdefault("review_process_history", []).append(record)
-            review["automation_reference"] = record["reference"]
-            review["automation_approvals"] = {
-                key: {
-                    "version": version,
-                    "reference": record["reference"],
-                    "at": record["at"],
-                }
-                for key in record["approved"]
-            }
-
+    if request.method == "POST":
         try:
-            store.update(str(review_id), change)
-        except ValueError as error:
-            form.add_error(None, str(error))
+            shared_approvals.set_approval(
+                request.POST.get("key", ""),
+                request.POST.get("action", ""),
+                request.POST.get("version", ""),
+                request.POST.get("reference", ""),
+                request.POST.get("note", ""),
+                expected_revision=request.POST.get("revision", ""),
+            )
+        except ValueError as exception:
+            error = str(exception)
         else:
-            return redirect("moderation:review_process", review_id=review_id)
+            return redirect(reverse("moderation:global_approvals") + "?saved=1")
+    registry = shared_approvals.load() or {
+        "approvals": {},
+        "history": [],
+        "revision": "new",
+    }
+    rows = []
+    for criterion, label, category in CRITERIA:
+        if criterion in REMINDER_CHECKS:
+            continue
+        sources = []
+        for source in ("Rule", "AI"):
+            key = f"{criterion}:{source}"
+            record = registry["approvals"].get(key, {})
+            sources.append(
+                {
+                    "key": key,
+                    "source": source,
+                    "record": record,
+                    "approved": bool(
+                        record.get("reference") and record.get("version") == version
+                    ),
+                    "stale": bool(record and record.get("version") != version),
+                }
+            )
+        rows.append({"label": label, "category": category, "sources": sources})
     return render(
         request,
-        "moderation/study_settings.html",
+        "moderation/global_approvals.html",
         {
-            "review": data,
-            "form": form,
+            "rows": rows,
+            "error": error,
             "checking_version": version,
+            "revision": registry["revision"],
+            "saved": request.GET.get("saved") == "1",
+            "approved_count": len(shared_approvals.current_approvals()),
+            "history": list(reversed(registry["history"]))[:50],
+            "initialised": shared_approvals.load() is not None,
         },
+        status=400 if error else 200,
     )
 
 
@@ -1147,7 +1129,7 @@ def validation_comparison(request, review_id):
     version = checking_version()
     for stat in statistics:
         for stratum in stat["strata"]:
-            approval = data.get("automation_approvals", {}).get(
+            approval = shared_approvals.approvals(data).get(
                 f"{stat['id']}:{stratum['source']}", {}
             )
             stratum["approved"] = bool(
@@ -1276,6 +1258,16 @@ def approve_check(request, review_id, criterion):
         store.update(str(data["id"]), change)
     except ValueError as error:
         return HttpResponse(str(error), status=409)
+    saved = store.load(str(data["id"]))
+    approval = saved.get("automation_approvals", {}).get(f"{criterion}:{source}", {})
+    shared_approvals.set_approval(
+        f"{criterion}:{source}",
+        action,
+        version,
+        approval.get("reference", ""),
+        approval.get("note", ""),
+        origin={"review_id": str(data["id"]), "basis": basis},
+    )
     return redirect(
         reverse("moderation:validation_comparison", args=[review_id])
         + f"?approval={action}#stat-{criterion}"

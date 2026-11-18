@@ -1,5 +1,22 @@
 # Changelog
 
+## Shared validation approvals — 18 November 2026
+
+- Add a workspace-wide Global approvals page with separate Rule/AI decisions,
+  evidence, improvement notes, version safeguards and approval/withdrawal history.
+- Use shared decisions for matching existing and future moderation reviews.
+  Inline audit approvals also publish globally; old Study settings links redirect
+  to the shared page. Global withdrawal cannot restore an old batch-only approval.
+- Start new reviews in moderation when current shared approvals exist. Preserve
+  existing workflow choices and independent validation review requirements.
+- Publish the 21 explicitly recorded v2 source approvals without rewriting the
+  original evaluation records. Manual referrals and overrides still require review.
+- Keep checking rules, extraction, prompts, model and evaluated fingerprint
+  unchanged. This workflow update is not a new validation of changed checking code.
+- Verify with 460 Python tests, 10 navigation tests and Django/Ruff checks; live AI
+  was not used for verification.
+
+
 ## After validation baseline v1 — 17 November 2026
 
 ### Version 2 development

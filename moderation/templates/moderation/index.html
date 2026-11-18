@@ -8,6 +8,7 @@
     <form method="post" enctype="multipart/form-data" class="upload-form" data-upload-form>
       {% csrf_token %}
       {{ form.non_field_errors }}
+      <p class="helper">New reviews use current global approvals for moderation when available. Choose Validate the tool from the workflow page for independent audits.</p>
       <label for="id_title">Review name</label>{{ form.title }}{{ form.title.errors }}
       <div class="file-drop"><span class="upload-icon" aria-hidden="true">↥</span><label for="id_archive">Choose your submission ZIP</label><p>Word (.doc/.docx) and PDF files · up to 150 MB per ZIP</p><input id="id_archive" type="file" name="archive" accept=".zip,application/zip" required><span class="file-name" data-file-name>No file selected</span></div>
       {{ form.archive.errors }}

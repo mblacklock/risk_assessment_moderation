@@ -4,7 +4,7 @@ import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-from . import store
+from . import global_approvals, store
 from .ai import (
     HS_EVIDENCE_FAILURE,
     apply_ai,
@@ -37,6 +37,9 @@ def create_review(data, title, use_ai, latest_only=False):
         "updated": store.now(),
         "state": "queued",
         "use_ai": use_ai,
+        "review_mode": (
+            "routine" if global_approvals.current_approvals() else "validation"
+        ),
         "latest_only": latest_only,
         "ignored": ignored,
         "submissions": [],

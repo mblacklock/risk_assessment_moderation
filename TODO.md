@@ -1,5 +1,88 @@
 # TODO
 
+## After v2 evaluation — 18 November 2026
+
+See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDINGS_V2.md) for the completed
+20-submission evaluation, source-specific approvals and limitations. There are
+19 approved criteria, one partly approved and four unapproved. Acceptable manual
+referrals do not block approval; incorrect definite outcomes do. Recommended
+improvements may remain open for approved checks. Preserve the evaluated v2
+fingerprint, original audits, tool snapshots and adjudications; implement changes
+in a later checking version and do not automatically transfer approvals.
+
+### Priority 1 — false findings and unsafe automatic dispositions
+
+- [ ] Preserve adjacent PDF cell boundaries for Area/Activity and Assessment Title.
+  Prevent merged extraction from creating a false wrong-field issue. Keep real
+  misplaced/contradictory entries detectable. Re-evaluate AI field-entry quality.
+- [ ] Associate floating/anchored Word signature images with their displayed
+  sign-off field. Fix the observed false missing student RA signature; preserve
+  genuinely blank fields and manual fallback for uncertain presence. Re-evaluate
+  Student risk sign-off. Presence detection does not authenticate a signature.
+- [ ] Join genuine PDF risk-row continuations across page breaks without inventing
+  a new incomplete row or borrowing fields from unrelated activities. Verify both
+  valid continuations and genuinely missing fields. Re-evaluate Risk table completed.
+- [ ] Exclude guidance-only/footer rows from assessed hazards and from numeric
+  rating/reduction instructions. Preserve genuine incomplete rows and multi-rating
+  ambiguity. Remove spurious row/count correction messages even where the overall
+  rating issue is correct. Risk table approval remains withheld; rating completion
+  and reduction are approved with this feedback/parser improvement still open.
+- [ ] Make AI Area/Activity decisions follow the staff-agreed identification rule:
+  planned physical work needs an immediately identifiable area/activity in that
+  entry; descriptions elsewhere do not repair a vague entry. Retain the agreed
+  computer-work interpretation. Do not require a new Location field in the standard
+  template. Rule blank-field decisions are approved; AI decisions remain unapproved.
+- [ ] Refine facilities comparison and prerequisites: defer when the workspace
+  is unidentified; compare separately assessed sections in context; identify
+  genuine broad space-type incompatibilities; avoid unnecessary computer-work
+  skips. Apply [LAB_SPACES.md](LAB_SPACES.md), including Ellison C/E laboratories,
+  SAN/The Zone IT spaces and the fabrication-workshop testing restriction. Do not
+  check exact room equipment or silently canonicalise unconfirmed room prefixes.
+  Re-evaluate Activities–facilities consistency.
+
+### Priority 2 — reduce referrals in approved checks
+
+- [ ] Restrict specialist-question exclusion to actual hazard rows, rather than
+  excluding questionnaire cells because their enclosing Word table also contains
+  risk headings. Recognise the questionnaire without inferring answers from hazard
+  narrative. Preserve ambiguous-answer review and all Yes-related supervisor work.
+- [ ] Parse explicit administrative Yes/No answers followed by explanations,
+  including answers appended after retained template options. Assess each RA's
+  questions separately when several RAs are supplied. Do not infer an answer from
+  unchanged options or treat unreadable/missing questions as passed.
+- [ ] Improve readable rating notation handling, including parenthesised scores,
+  expanded severity/likelihood descriptions and trailing band words. Preserve
+  ambiguous pairing and real missing scores; apply consistent parsing to reduction.
+- [ ] Improve PDF image/drawing signature-presence detection across RA and ethics
+  sign-offs. Keep safe manual referrals when uncertain; do not turn them into false
+  missing-signature findings. Current approved sign-off checks need not await this.
+
+### Priority 3 — precision and evaluation follow-through
+
+- [ ] Improve H&S routing at individual-entry level: optionally give direct
+  correction findings for independently clear project/data-only hazards while
+  retaining judgement for genuine H&S mixtures. H&S approval remains valid for the
+  evaluated fingerprint; acceptable referrals are not definite decision errors.
+- [ ] Keep correction wording specific, evidence-backed and owned by the appropriate
+  check. Do not duplicate location, ratings or missing-form corrections in dependent
+  checks. Do not certify extraneous guidance-row instructions merely because an
+  overall Issue found is correct.
+- [ ] Evaluate changed checks using targeted synthetic regression fixtures and
+  fresh independent submissions, including real defect cases where the v2 sample
+  contained only passes. Do not hardcode sample identities or transfer approvals.
+- [ ] Measure full-class v2 confirmation requirements under the recorded approval
+  configuration without rewriting original evaluation records. Distinguish required,
+  reviewed and remaining confirmations, uncertain referrals, supervisor follow-up
+  and unapproved definite findings. Measure staff time independently if claiming
+  workload or time savings.
+
+## Historical v1 implementation list
+
+The completed items and hold statements below describe the v1-to-v2 implementation
+stage. They are retained as history; current v2 approval decisions are in the
+evaluation summary above and supersede earlier statements that a check is on hold.
+
+
 ## After validation baseline v1
 
 Keep checking changes out of the frozen evaluation baseline. Implement and test

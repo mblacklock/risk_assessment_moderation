@@ -1,0 +1,29 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<a class="back-link" href="{% url 'moderation:index' %}">← All reviews</a>
+<div class="page-heading"><div><h1>Global approvals</h1><p>Validated checks for every moderation review in this workspace.</p></div><span class="outline-tag">{{ approved_count }} source approvals active</span></div>
+{% if saved %}<div class="notice" role="status">Global approval saved. Matching moderation reviews now use this decision.</div>{% endif %}
+{% if error %}<div class="notice warning" role="alert">{{ error }}</div>{% endif %}
+<section class="panel upload-panel global-approval-group">
+<p>Approved checks supply clear corrections and supervisor follow-up automatically in <strong>Moderate submissions</strong>. Manual, uncertain and unapproved findings still need review. Validation audits keep their independent review process.</p>
+<p>Approvals apply to this checking version and configured model. Changing either requires renewed approval. Withdrawing an approval affects all moderation reviews; original audits, findings and recorded human decisions are preserved.</p>
+<p>Approval and improvement recommendations are separate: a check can remain approved while recommended fixes are recorded in its notes.</p>
+<details><summary>Current checking version</summary><p class="helper">{{ checking_version }}</p></details>
+{% if not initialised %}<p class="notice warning">No shared decisions have been recorded yet. Existing batch settings remain in effect until the first global decision is saved. Saving a global decision makes this page the authoritative list; batch-only approvals will no longer apply.</p>{% endif %}
+</section>
+{% regroup rows by category as groups %}
+{% for group in groups %}<section class="panel upload-panel global-approval-group"><h2>{{ group.grouper }}</h2>
+<div class="table-wrap"><table class="global-approval-table"><thead><tr><th scope="col">Check</th><th scope="col">Rule</th><th scope="col">AI</th></tr></thead><tbody>
+{% for row in group.list %}<tr><th scope="row">{{ row.label }}</th>{% for source in row.sources %}<td>
+<span class="pill {% if source.approved %}complete{% else %}pending{% endif %}">{% if source.approved %}Approved{% elif source.stale %}Renewal required{% else %}Not approved{% endif %}</span>
+<details><summary>{% if source.approved %}Evidence, notes &amp; withdrawal{% else %}Record approval{% endif %}</summary>
+{% if source.record %}<p><strong>Evidence:</strong> {{ source.record.reference }}</p><p><strong>Notes / recommended fixes:</strong> {{ source.record.note|default:'None recorded' }}</p><p class="helper">Recorded {{ source.record.at }} · Version {{ source.record.version|slice:':12' }}</p>{% endif %}
+<form method="post">{% csrf_token %}
+<input type="hidden" name="key" value="{{ source.key }}"><input type="hidden" name="version" value="{{ checking_version }}"><input type="hidden" name="revision" value="{{ revision }}">
+<label>Validation evidence <textarea name="reference" required maxlength="4000" rows="3">{{ source.record.reference }}</textarea></label><label>Notes / recommended fixes <textarea name="note" maxlength="5000" rows="3">{{ source.record.note }}</textarea></label><p class="helper">Record an explicit staff decision supported by evaluation evidence. These statistics and tests do not approve a check automatically.</p>
+{% if source.approved %}<button class="button primary" name="action" value="approve">Save evidence &amp; notes</button> <button class="button secondary" name="action" value="revoke" formnovalidate>Withdraw globally</button>{% else %}<button class="button primary" name="action" value="approve">Approve globally · {{ source.source }}</button>{% endif %}
+</form></details></td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div></section>{% endfor %}
+<section class="panel upload-panel global-approval-group"><details><summary>Approval history · latest {{ history|length }} decisions</summary>
+<p>Changes preserve the previous approval, evidence and notes.</p><ul>{% for entry in history %}<li><strong>{{ entry.key }} · {{ entry.action|capfirst }}</strong> · {{ entry.at }}<p class="helper">Version {{ entry.version|slice:':12' }}</p>{% if entry.approval %}<p>{{ entry.approval.reference }}</p><p>{{ entry.approval.note }}</p>{% endif %}{% if entry.previous_approval %}<details><summary>Previous approval</summary><p>{{ entry.previous_approval.reference }}</p><p>{{ entry.previous_approval.note }}</p></details>{% endif %}</li>{% empty %}<li>No global approval changes recorded.</li>{% endfor %}</ul></details></section>
+{% endblock %}

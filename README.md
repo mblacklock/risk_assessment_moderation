@@ -1,8 +1,23 @@
 # Risk assessment moderation
 
+V2 evaluation completed **18 November 2026**: **19 criteria approved, one partly
+approved and four unapproved**. See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDINGS_V2.md)
+for decisions, evidence limits and next steps, and [TODO.md](TODO.md) for prioritised
+fixes. Manual referrals can remain in approved checks. Approvals are specific to
+the evaluated criterion/source/version; recommended improvements are separate.
+Full-class v2 confirmation requirements and staff time savings have not been measured.
+
+The baseline and implementation notes below describe development before this v2
+evaluation; use the evaluation summary for current approval decisions.
+
+
 Evaluation reference: **Validation baseline v1 — 17 November 2026**, Git tag
 `validation-baseline-v1`. See [VALIDATION_BASELINE.md](VALIDATION_BASELINE.md)
 and [CHANGELOG.md](CHANGELOG.md) for scope, versions and verification.
+
+Staff-confirmed workspace naming and evaluation clarifications are recorded in
+[LAB_SPACES.md](LAB_SPACES.md). This working glossary does not change current v2
+checking behaviour; unresolved room aliases and functions still need confirmation.
 
 Development on `validation-v2` follows [TODO.md](TODO.md). The v2
 changes accept inserted middle names when the first name and full submitted
@@ -229,9 +244,12 @@ certify safety adequacy. These wording changes preserve saved findings and decis
 
 Open a saved batch, or **Choose workflow** from the grid, for two choices:
 **Validate the tool** opens independent audits; **Moderate submissions** opens the
-moderation grid in Routine mode. Check approvals are kept separately in **Study
-settings**, rather than on the workflow chooser. Existing and new batches default to
-**Validation**, which retains the confirmation requirement for every flagged finding.
+moderation grid in Routine mode. **Global approvals**, linked in the main navigation,
+provides one workspace-wide list of approved criterion/source pairs, evidence,
+recommended fixes and withdrawal history. New reviews start in **Moderate submissions**
+when current shared approvals exist; otherwise they start in **Validation**. Existing
+reviews retain their chosen workflow. Validation mode keeps explicit confirmation
+requirements and independent audits even when a shared approval exists.
 No check is automatically declared validated by this change.
 
 From **Saved reviews**, use **Validate the tool — open without tool findings**
@@ -265,8 +283,12 @@ Select unfamiliar cases and include passed checks as well as flagged ones; these
 records do not themselves establish reliability or authorise research reuse.
 
 After staff validation, record the evidence reference and explicitly approve the
-relevant criterion/source pairs in **Study settings**, then choose **Moderate
-submissions**. Approval is per batch; Rule and AI findings are approved separately.
+relevant criterion/source pairs in **Global approvals**, then choose **Moderate
+submissions**. Approvals apply to all matching existing and future moderation reviews
+in this local workspace; Rule and AI findings are approved separately. You can edit
+the evidence/notes or withdraw a decision globally. Older Study settings links redirect
+to this page. Once the shared registry is initialised, batch-only approvals cannot
+reactivate a withdrawn global decision.
 Only approved, version-matched clear **Issue found** and **Supervisor check**
 findings bypass individual confirmation. They feed correction wording or supervisor
 follow-up through the existing feedback generator. They are labelled automatic,
@@ -653,7 +675,7 @@ are highlighted: matching passes alone do not test defect detection. No statisti
 threshold, software test result or agreement percentage automatically approves a
 check. Development cases remain development cases even when these statistics are
 shown. Independent staff adjudication and the agreed evaluation design remain
-necessary before recording approval in Study settings.
+necessary before recording approval in Global approvals.
 
 In **Statistics by check**, expand a criterion and use **Approve this check** next
 to the relevant source/version group. The evidence reference is recorded
@@ -663,12 +685,16 @@ results with definite audit comparisons can be approved here; AI groups must als
 match the configured model. Older/unversioned groups remain visible but cannot
 approve the current version. A changed audit selection, latest audit, overview
 details or checking version rejects a stale approval request until the comparison
-is reloaded. Approvals apply to this batch in **Moderate submissions**; they do
-not change workflow mode, override saved findings, remove uncertainty or start AI.
+is reloaded. These actions also publish or withdraw the decision in **Global approvals**
+for all matching moderation reviews; they do not change an existing review's workflow mode,
+override saved findings, remove uncertainty or start AI.
 **Withdraw approval** restores confirmation requirements for unreviewed findings.
 Actions and previous approval details remain in the settings history. Repeated
-identical approval requests do not duplicate that history. Study settings remains
-available to manage approvals separately.
+identical approval requests do not duplicate the batch history. Global changes retain
+previous evidence and notes in a separate private workspace registry. The global page
+rejects stale forms after another approval change. The checking/extraction/prompt/model
+fingerprint is unchanged by this workflow-only update; the 21 explicitly approved v2
+source decisions have been published without modifying their evaluation records.
 
 Use **Edit audit** on the audit overview to correct a saved outcome. The latest
 selections and notes are prefilled. Saving appends a revision and preserves the
