@@ -4,6 +4,10 @@ Evaluation reference: **Validation baseline v1 — 17 November 2026**, Git tag
 `validation-baseline-v1`. See [VALIDATION_BASELINE.md](VALIDATION_BASELINE.md)
 and [CHANGELOG.md](CHANGELOG.md) for scope, versions and verification.
 
+V1 evaluation results and interpretation are recorded in
+[EVALUATION_FINDINGS.md](EVALUATION_FINDINGS.md). These figures describe explicit
+confirmation requirements; they do not establish moderation-time savings.
+
 A local Django app for reviewing completion of KB6060 risk assessment and ethics
 forms downloaded as a ZIP from Turnitin/Blackboard.
 
