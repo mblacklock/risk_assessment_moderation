@@ -5,7 +5,11 @@ approved and four unapproved**. See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDI
 for decisions, evidence limits and next steps, and [TODO.md](TODO.md) for prioritised
 fixes. Manual referrals can remain in approved checks. Approvals are specific to
 the evaluated criterion/source/version; recommended improvements are separate.
-Full-class v2 confirmation requirements and staff time savings have not been measured.
+The **All v2** operational snapshot (18 November 2026) requires **304 confirmations**
+across 106 submissions, compared with 464 for approved v1 (34.5% fewer). See the
+[full-cohort results](EVALUATION_FINDINGS_V2.md#full-cohort-operational-results--18-november-2026)
+for provenance and limitations. Fail outcomes remain provisional; staff-time savings
+and improved error rates have not been established.
 
 The baseline and implementation notes below describe development before this v2
 evaluation; use the evaluation summary for current approval decisions.
