@@ -1,0 +1,6 @@
+{% extends 'moderation/base.html' %}
+{% block content %}
+<div class="page-heading"><div><h1>Student feedback release</h1><p>Create the cohort register from saved records. Nothing is sent to eLP.</p></div></div>
+<section class="panel upload-panel release-panel"><h2>Prepare the 106-student register</h2><p>All v2 supplies the selected latest-attempt roster. Existing assessment batches supply proposals, not automatic final decisions. No checking or AI is run, and originals stay unchanged.</p>
+<form method="post" class="release-form">{% csrf_token %}{{ form.as_p }}<button class="button primary">Create release register</button></form></section>
+{% endblock %}

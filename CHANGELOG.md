@@ -1,5 +1,26 @@
 # Changelog
 
+## Student feedback release register — 23 November 2026
+
+- Add a separate 106-student release register from the selected All v2 roster,
+  populated with saved moderation/audit/adjudication proposals for the existing
+  65 students and manual-entry places for the other 41 moderators' submissions.
+- Require explicit finalisation of the overall outcome and public action sections,
+  without repeating 24 criterion decisions. Preserve explicit waivers, original
+  edited feedback, superseded interpretations and internal provenance; hold
+  ambiguous or conflicting evidence for an explicit staff decision.
+- Provide search, sorting, draft/preview, private source references, responsible
+  moderator, finalisation date, replacement confirmation and record history.
+- Add a release-only Excel export, with all students (unfinished outcomes/text
+  blank) or finalised students only. Exclude all private evidence and notes, preserve
+  line breaks and force cell text to prevent formula interpretation.
+- Detect source changes before export; preserve existing wording during source
+  refresh and block changed finalised records pending explicit refinalisation.
+- Leave checking rules, prompts, approvals, existing moderation/feedback exports
+  and all original validation records unchanged. No checking/AI is run and nothing
+  is automatically sent, uploaded or published.
+
+
 ## Shared validation approvals — 18 November 2026
 
 - Add a workspace-wide Global approvals page with separate Rule/AI decisions,

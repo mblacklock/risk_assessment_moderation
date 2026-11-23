@@ -1,0 +1,2 @@
+{% extends 'moderation/base.html' %}
+{% block content %}<div class="page-heading"><h1>Student feedback release</h1></div><section class="panel upload-panel"><p class="notice warning" role="alert">{{ error }}</p><p>No feedback has been released. Reload the register and resolve the source or record issue.</p><a class="button secondary" href="{% url 'moderation:release_index' %}">Return to release register</a></section>{% endblock %}

@@ -1,5 +1,62 @@
 # Risk assessment moderation
 
+## Student feedback release
+
+Open **Student feedback release** in the main navigation. This is the authoritative
+local register of intended student feedback, separate from the checker and the
+independent validation records. It never sends or uploads to eLP.
+
+The register uses the 106 selected latest attempts in **All v2** as its roster.
+On initial setup, choose Samples 1–5 and Validation v1/v2 as the assessment sources,
+with the older All batch as a supplemental source of saved moderation actions.
+The initial register contains 65 source-backed proposals and 41 places for
+independent moderator feedback. Every record remains unfinalised until a staff
+member explicitly confirms it. Student numbers are unique; ambiguous latest
+attempts, changed attachments and contradictory decisions are held for resolution.
+
+1. Search or filter the cohort and open **Finalise feedback**. Review the proposed
+   outcome, student corrections, required supervisor completion and non-blocking
+   supervisor follow-up. Separate numbered actions with blank lines.
+2. Use the read-only private source panel for the original audit, moderation notes,
+   historical interpretations and previously edited feedback. Independent audits
+   are proposals, not final moderation. Explicit agreed interpretations supersede
+   earlier technical findings; recorded waivers are retained separately. Ambiguous
+   prose or contradictory judgements require an explicit decision, not a guess.
+3. Edit/consolidate the public wording. Stale feedback is retained as source wording
+   for confirmation; it is not silently replaced. Remove parser terminology and
+   duplicate location corrections without removing distinct requirements. Record
+   unresolved decisions or waivers in the private resolution field.
+4. Enter the responsible moderator and explicitly confirm the final outcome and
+   feedback. Saving a draft or previewing does not finalise anything. Finalisation
+   does not require revisiting 24 check dropdowns or running pending AI. A Pass
+   cannot contain required corrections; non-blocking follow-up has its own outcome.
+5. Use **Export finalised students only** for the release workbook. The alternative
+   full-cohort export contains all 106 rows, with final outcomes/feedback blank for
+   unfinalised or source-changed records. Check the exported wording and manually
+   copy it into Blackboard/eLP. A supervisor-follow-up Pass exports as Pass for eLP.
+
+For the other 41 students, open their existing roster row and enter the independent
+moderator's explicit outcome and the three action categories. Preserve their
+original feedback in its private field. No automated processing is required and no
+outcome is inferred from free text. Manual entry is supported; bulk import is not
+part of this first operational release.
+
+The new workbook has one sheet and only five public columns: student number, name,
+Pass/Fail, final feedback and finalisation status. It excludes notes, evidence and
+adjudications. The existing detailed moderation export remains unchanged and is
+staff-only. Neither export publishes anything automatically.
+
+The private release register is stored at
+`reviews/feedback-release/register.json` (excluded from Git). Drafts, finalisation
+and explicit replacements retain history, dates, provenance and responsible staff.
+Refreshing sources does not rerun checking/AI or overwrite edited/finalised wording.
+Exports also check sources directly: changed evidence blocks previously finalised
+feedback even before a refresh. Replacing a finalised record needs a separate
+confirmation; finalising against changed/ambiguous evidence also needs a recorded
+resolution. Original submissions, review JSON, validation snapshots and approvals
+are never modified by the release workflow. Checking provenance is unchanged.
+
+
 V2 evaluation completed **18 November 2026**: **19 criteria approved, one partly
 approved and four unapproved**. See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDINGS_V2.md)
 for decisions, evidence limits and next steps, and [TODO.md](TODO.md) for prioritised
