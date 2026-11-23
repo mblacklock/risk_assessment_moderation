@@ -26,7 +26,8 @@ def review_progress(check, review=None):
         reviewed = False
     from .global_approvals import automatically_accepted
 
-    automatic = automatically_accepted(review or {}, check) and not reviewed
+    automatic_eligible = automatically_accepted(review or {}, check)
+    automatic = automatic_eligible and not reviewed
     resolved = (reviewed or automatic) and effective_status(check) in {
         "complete",
         "issue",
@@ -40,7 +41,7 @@ def review_progress(check, review=None):
         "review_resolved": reviewed and resolved,
         "needs_review": flagged and not reviewed and not automatic,
         "automatic": automatic,
-        "review_required": flagged and not automatic,
+        "review_required": flagged and not automatic_eligible,
         "review_unresolved": flagged and reviewed and not resolved,
         "flagged": flagged,
         "review_label": (

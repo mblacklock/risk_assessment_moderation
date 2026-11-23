@@ -8,7 +8,7 @@ from django.urls import reverse
 from moderation import global_approvals, jobs, store
 from moderation.review_policy import checking_version
 from moderation.tests.test_review import archive_bytes
-from moderation.workflow import review_progress
+from moderation.workflow import finding_fingerprint, review_progress
 
 
 @pytest.fixture
@@ -82,6 +82,66 @@ def test_global_decisions_keep_uncertain_unknown_overridden_and_changed_models_m
     original_check = check()
     monkeypatch.setenv("OPENAI_MODEL", "different-synthetic-model")
     assert review_progress(original_check, review)["needs_review"]
+
+
+def test_acknowledging_an_eligible_finding_does_not_make_confirmation_required(
+    workspace,
+):
+    approve()
+    finding = check(message="A synthetic rating issue", evidence=[])
+    review = {"review_mode": "routine"}
+    before = review_progress(finding, review)
+    assert before["automatic"] and not before["review_required"]
+    finding.update(
+        reviewed_at="2026-11-23T12:00:00+00:00",
+        reviewed_fingerprint=finding_fingerprint(finding),
+        history=[{"decision": "", "note": "Confirmed existing finding"}],
+    )
+    saved = copy.deepcopy(finding)
+    approval_bytes = global_approvals.registry_path().read_bytes()
+    after = review_progress(finding, review)
+    assert after["reviewed"] and after["review_resolved"]
+    assert not after["automatic"]
+    assert not after["review_required"] and not after["needs_review"]
+    assert after["review_label"] == "Reviewed — automated result confirmed"
+    assert finding == saved
+    assert global_approvals.registry_path().read_bytes() == approval_bytes
+    assert review_progress(finding, {"review_mode": "validation"})["review_required"]
+    finding["decision"] = "complete"
+    assert review_progress(finding, review)["review_required"]
+    global_approvals.set_approval("ratings:Rule", "revoke", checking_version())
+    finding["decision"] = ""
+    assert review_progress(finding, review)["review_required"]
+
+
+def test_grid_denominator_is_stable_after_an_optional_acknowledgement(workspace):
+    from django.http import QueryDict
+
+    from moderation.views import grid_context
+
+    approve()
+    with patch.object(jobs, "start"):
+        review = jobs.create_review(archive_bytes(), "Synthetic denominator", False)
+    jobs.run(review["id"])
+    review = store.load(review["id"])
+    review["review_mode"] = "routine"
+    for finding in review["submissions"][0]["checks"]:
+        finding.update(status="complete", decision="")
+    findings = {c["id"]: c for c in review["submissions"][0]["checks"]}
+    findings["ratings"]["status"] = "issue"
+    findings["identity"]["status"] = "review"
+    before = grid_context(review, QueryDict())
+    findings["ratings"].update(
+        reviewed_at="2026-11-23T12:00:00+00:00",
+        reviewed_fingerprint=finding_fingerprint(findings["ratings"]),
+        history=[{"decision": "", "note": "Optional confirmation"}],
+    )
+    original = copy.deepcopy(review)
+    after = grid_context(review, QueryDict())
+    assert before["flagged_count"] == after["flagged_count"] == 1
+    assert before["reviewed_count"] == after["reviewed_count"] == 0
+    assert before["remaining_count"] == after["remaining_count"] == 1
+    assert review == original
 
 
 def test_page_evidence_stale_form_history_and_navigation(workspace, client):

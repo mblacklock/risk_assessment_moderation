@@ -398,6 +398,12 @@ certify safety adequacy. These wording changes preserve saved findings and decis
 
 ## Validation and routine moderation
 
+The confirmation total counts findings that require explicit review under the current
+policy. Acknowledging an automatically eligible finding does not add it to that
+total; its human-reviewed label and history are preserved. Explicit overrides still
+require confirmation. Optional acknowledgements do not inflate the required-review
+numerator or denominator.
+
 Open a saved batch, or **Choose workflow** from the grid, for two choices:
 **Validate the tool** opens independent audits; **Moderate submissions** opens the
 moderation grid in Routine mode. **Global approvals**, linked in the main navigation,

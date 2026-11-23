@@ -1,5 +1,13 @@
 # Changelog
 
+## Keep confirmation counts stable after acknowledgements — 23 November 2026
+
+- Separate automatic-acceptance eligibility from human-reviewed status when counting
+  required confirmations. Optional acknowledgements retain their history and labels
+  without increasing the required-review total.
+- Preserve explicit overrides, validation behaviour, approval settings and all saved
+  student records. Checking rules, prompts and the checking fingerprint are unchanged.
+
 ## Omit administrative questions from student feedback — 23 November 2026
 
 - Exclude Administrative questions from feedback instructions, feedback readiness
