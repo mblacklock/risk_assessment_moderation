@@ -8,6 +8,15 @@ Individual wording edits and finalisation remain available when needed.
 This separate local register records intended feedback; nothing is uploaded or sent
 into eLP automatically.
 
+**Feedback-only exclusion:** Administrative questions are omitted from student-facing
+feedback and its Pass/Fail calculation. The administrative checks, moderation grid,
+saved judgements, validation statistics and histories are unchanged. A submission
+whose only correction is administrative therefore receives Pass in its feedback,
+while the original moderation outcome remains available internally. The exclusion
+also applies to individual/bulk eLP feedback; other edited wording is preserved.
+Previously finalised feedback prepared under an older exclusion policy is held for
+explicit review rather than silently replaced or exported with outdated content.
+
 The 106 selected latest attempts in **All v2** supply the roster. Samples 1–5 and
 Validation v1/v2 supply the existing 65 assessments; the remaining 41 roster rows
 retain the independent moderators' manual-entry route. No submissions are processed

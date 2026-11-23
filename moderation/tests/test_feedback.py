@@ -297,8 +297,8 @@ def test_feedback_groups_scores_names_questions_and_details_supervisor_actions(
     text = store.load(r["id"])["submissions"][0]["elp_feedback"]["text"]
     assert "in risk rows 1, 2 and 3" in text
     assert text.count("Enter the post-control") == 1
-    assert "Generic to the University (" in text
-    assert "related risk assessment need review or updating" in text
+    assert "Generic to the University (" not in text
+    assert "related risk assessment need review or updating" not in text
     assert '"Physical risk assessment form completed?"' in text
     assert "Ethics form complete" in text
     assert "Ethical concerns acknowledged" in text
@@ -310,7 +310,9 @@ def test_feedback_groups_scores_names_questions_and_details_supervisor_actions(
     assert text.count("resubmit") == 1
 
 
-def test_only_unanswered_administrative_question_is_named(feedback_review, client):
+def test_administrative_questions_are_omitted_even_when_the_only_issue(
+    feedback_review, client
+):
     r = feedback_review
     c = finding(r, "admin")
     c.update(status="issue", message="Administrative question(s) 2 unanswered.")
@@ -318,8 +320,10 @@ def test_only_unanswered_administrative_question_is_named(feedback_review, clien
     store.save(r)
     assert generate(client, r).status_code == 302
     text = store.load(r["id"])["submissions"][0]["elp_feedback"]["text"]
-    assert "related risk assessment" in text
+    assert "related risk assessment" not in text
     assert "Generic to the University" not in text
+    assert text.startswith("Result: Pass")
+    assert finding(store.load(r["id"]), "admin")["status"] == "issue"
 
 
 def test_format_upgrade_keeps_manual_wording_and_history(feedback_review, client):
@@ -359,7 +363,7 @@ def test_format_upgrade_keeps_manual_wording_and_history(feedback_review, client
     response = generate(client, r)
     assert response.status_code == 302
     updated = store.load(r["id"])["submissions"][0]
-    assert updated["elp_feedback"]["format_version"] == 2
+    assert updated["elp_feedback"]["format_version"] == 3
     assert "screen-work entry" in updated["elp_feedback"]["text"]
     assert updated["feedback_history"][0] == old
     assert len(updated["feedback_history"]) == 2

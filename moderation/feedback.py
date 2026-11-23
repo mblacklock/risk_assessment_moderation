@@ -25,6 +25,17 @@ SUPERVISOR_OWNED = {
     "supervisor_statement",
     "tutor",
 }
+FEEDBACK_EXCLUDED = {"admin"}
+
+
+def feedback_checks(checks):
+    return [check for check in checks if check["id"] not in FEEDBACK_EXCLUDED]
+
+
+def feedback_outcome(item):
+    return overall(feedback_checks(item["checks"]))
+
+
 INTERNAL = re.compile(
     r"PDF evidence|could not be read|could not be verified|unverified|AI conclusion|AI assessment|AI comparison|Inspect the original|Moderator to inspect|processing (?:failed|stopped|pending)|\bAPI\b",
     re.I,
@@ -36,11 +47,11 @@ def feedback_readiness(review, item):
         return False, "This earlier attempt is excluded from the current review."
     if review["state"] in {"queued", "running"} or item["state"] != "done":
         return False, "Wait for processing to finish before generating feedback."
-    if not {key for key, _, _ in CRITERIA if key not in REMINDER_CHECKS}.issubset(
-        {c["id"] for c in item["checks"]}
-    ):
+    if not {
+        key for key, _, _ in CRITERIA if key not in REMINDER_CHECKS | FEEDBACK_EXCLUDED
+    }.issubset({c["id"] for c in item["checks"]}):
         return False, "Complete the missing checks before generating feedback."
-    progress = [review_progress(c, review) for c in item["checks"]]
+    progress = [review_progress(c, review) for c in feedback_checks(item["checks"])]
     remaining = sum(p["needs_review"] for p in progress)
     if remaining:
         return (
@@ -55,7 +66,7 @@ def feedback_readiness(review, item):
         )
     if ai_work_counts([item], review["use_ai"])[0]:
         return False, "Run the outstanding AI checks before generating feedback."
-    if overall(item["checks"]) not in {"complete", "issue", "supervisor"}:
+    if feedback_outcome(item) not in {"complete", "issue", "supervisor"}:
         return (
             False,
             "A final Pass, Supervisor check or Issue found outcome is required before generating feedback.",
@@ -156,7 +167,7 @@ def fallback_wording(check, status):
     return message
 
 
-FEEDBACK_FORMAT_VERSION = 2
+FEEDBACK_FORMAT_VERSION = 3
 
 
 def joined(values):
@@ -314,7 +325,7 @@ def suggested_wording(check, status, item=None):
 def feedback_items(item):
     entries = []
     issues = {c["id"]: c for c in item["checks"] if effective_status(c) == "issue"}
-    for check in ordered_checks(item["checks"]):
+    for check in ordered_checks(feedback_checks(item["checks"])):
         status = effective_status(check)
         if status not in {"issue", "supervisor"}:
             continue
@@ -425,6 +436,13 @@ def feedback_items(item):
             previous = saved.get("wording", {}).get(entry["key"])
             if previous and previous != previous_defaults.get(entry["key"]):
                 entry["text"] = previous
+    if saved.get("format_version") == 2 and saved.get(
+        "signature"
+    ) == feedback_signature(item):
+        for entry in entries:
+            previous = saved.get("wording", {}).get(entry["key"])
+            if previous:
+                entry["text"] = previous
     return entries
 
 
@@ -443,7 +461,7 @@ class FeedbackWordingForm(forms.Form):
 
 
 def render_feedback(item, entries, wording):
-    outcome = overall(item["checks"])
+    outcome = feedback_outcome(item)
     lines = ["Result: " + OVERALL_LABELS[outcome], ""]
     if outcome == "issue":
         lines += [
@@ -513,7 +531,7 @@ def new_feedback_record(item, wording, generated_at):
         "format_version": FEEDBACK_FORMAT_VERSION,
         "signature": feedback_signature(item),
         "generated_at": generated_at,
-        "result": OVERALL_LABELS[overall(item["checks"])],
+        "result": OVERALL_LABELS[feedback_outcome(item)],
         "text": render_feedback(item, entries, wording),
         "wording": wording,
     }

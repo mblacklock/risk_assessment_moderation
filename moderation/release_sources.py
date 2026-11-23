@@ -3,6 +3,7 @@
 import copy
 
 from .criteria import REMINDER_CHECKS
+from .feedback import FEEDBACK_EXCLUDED
 
 
 def signature(bundle):
@@ -19,7 +20,7 @@ def signature(bundle):
         source.pop("automatic_acceptances", None)
         checks = []
         for check in source["checks"]:
-            if check["id"] in REMINDER_CHECKS:
+            if check["id"] in REMINDER_CHECKS | FEEDBACK_EXCLUDED:
                 continue
             action = explicit_moderation(check)
             final = resolved.get(check["id"], {})
@@ -57,6 +58,10 @@ def signature(bundle):
 def changed(record, bundle):
     from .release import digest
 
+    if record.get("outcome") and record.get("feedback_exclusions", []) != sorted(
+        FEEDBACK_EXCLUDED
+    ):
+        return True
     if record["source_fingerprint"] == digest(bundle):
         return False
     original = record.get("source_evidence")
@@ -70,6 +75,12 @@ def changed(record, bundle):
 
 
 def change_summary(record, bundle):
+    if record.get("outcome") and record.get("feedback_exclusions", []) != sorted(
+        FEEDBACK_EXCLUDED
+    ):
+        return [
+            "The student-feedback policy changed. Review the regenerated feedback before release."
+        ]
     if not changed(record, bundle):
         return []
     old = record.get("source_evidence", {})
@@ -89,7 +100,7 @@ def change_summary(record, bundle):
         checks = {c["id"]: c for c in a["checks"]}
         for check in b["checks"]:
             prior = checks.get(check["id"])
-            if check["id"] in REMINDER_CHECKS or not prior:
+            if check["id"] in REMINDER_CHECKS | FEEDBACK_EXCLUDED or not prior:
                 continue
             if check["status"] != prior["status"]:
                 reasons.append(

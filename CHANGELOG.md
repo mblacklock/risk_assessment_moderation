@@ -1,5 +1,13 @@
 # Changelog
 
+## Omit administrative questions from student feedback — 23 November 2026
+
+- Exclude Administrative questions from feedback instructions, feedback readiness
+  and feedback-only outcomes in individual/bulk generation and the release register.
+- Keep original checks, moderation outcomes, approvals and evaluation records
+  unchanged. Preserve other edited wording and prior feedback histories; older
+  finalised feedback requires explicit review under the changed feedback policy.
+
 ## Match release readiness to routine moderation — 23 November 2026
 
 - Reuse version-matched validated findings accepted by the main routine-moderation

@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from .criteria import BY_ID, REMINDER_CHECKS, effective_status
-from .feedback import INTERNAL, SUPERVISOR_OWNED, suggested_wording
+from .feedback import FEEDBACK_EXCLUDED, INTERNAL, SUPERVISOR_OWNED, suggested_wording
 
 DEFINITE = {"complete", "issue", "supervisor", "skipped"}
 ROUTING = {"review", "moderator", "unable"}
@@ -550,8 +550,15 @@ def reconstruct(bundle):
                     origin="Explicit recorded operational Pass; technical audit finding retained",
                 )
     by_key = {d["criterion"]: d for d in decisions}
-    missing = set(BY_ID) - REMINDER_CHECKS - set(by_key)
-    gaps = [f"{d['label']}: {d['gap']}" for d in decisions if d["gap"]]
+    missing = set(BY_ID) - REMINDER_CHECKS - FEEDBACK_EXCLUDED - set(by_key)
+    gaps = [
+        f"{d['label']}: {d['gap']}"
+        for d in decisions
+        if d["gap"] and d["criterion"] not in FEEDBACK_EXCLUDED
+    ]
+    for d in decisions:
+        if d["criterion"] in FEEDBACK_EXCLUDED:
+            d["feedback_excluded"] = True
     if source.get("conversation_decisions") and not conversation_matches(source):
         gaps.append(
             "The recovered conversation decisions refer to different source files or a different submitted attempt."
@@ -592,6 +599,8 @@ def reconstruct(bundle):
                     origin="Dependent check: recorded missing ethics form",
                 )
     for check in working.values():
+        if check["id"] in FEEDBACK_EXCLUDED:
+            continue
         d = by_key.get(check["id"])
         if not d or d["proposed"] not in {"issue", "supervisor"}:
             continue
@@ -654,7 +663,9 @@ def reconstruct(bundle):
             ):
                 texts.append(entry["text"])
         fields[audience] = "\n\n".join(texts)
-    statuses = [d["proposed"] for d in decisions]
+    statuses = [
+        d["proposed"] for d in decisions if d["criterion"] not in FEEDBACK_EXCLUDED
+    ]
     fields["outcome"] = (
         "issue"
         if "issue" in statuses

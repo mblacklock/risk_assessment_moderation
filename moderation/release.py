@@ -13,7 +13,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from . import release_store, store
 from .attempts import select_attempts, submission_timestamp
 from .criteria import effective_status
-from .feedback import INTERNAL, suggested_wording
+from .feedback import FEEDBACK_EXCLUDED, INTERNAL, suggested_wording
 from .validation import historical_adjudications
 from .workflow import finding_fingerprint
 
@@ -293,6 +293,7 @@ def new_record(number, bundle):
         "finalised_at": "",
         "source_fingerprint": digest(bundle),
         "source_evidence": bundle,
+        "feedback_exclusions": sorted(FEEDBACK_EXCLUDED),
         "proposal": proposal,
         "history": [],
     }
@@ -503,6 +504,7 @@ def save_record(
         )
         record.update(
             status="finalised" if finalise else "draft",
+            feedback_exclusions=sorted(FEEDBACK_EXCLUDED),
             generated_text=format_feedback(fields),
             final_text=format_feedback(fields) if finalise else "",
             finalised_at=store.now() if finalise else "",
@@ -566,6 +568,7 @@ def recover_recorded_judgements(revision, numbers=None):
             record.update({key: proposal[key] for key in PUBLIC_FIELDS})
             record.update(
                 proposal=proposal,
+                feedback_exclusions=sorted(FEEDBACK_EXCLUDED),
                 source_evidence=bundle,
                 source_fingerprint=digest(bundle),
                 generated_text=format_feedback(proposal),
