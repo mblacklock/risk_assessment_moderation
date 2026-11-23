@@ -13,6 +13,10 @@ def signature(bundle):
     proposal = propose(bundle)
     resolved = {d["criterion"]: d for d in proposal.get("decisions", [])}
     for source in result.get("sources", []) + result.get("supplemental", []):
+        # The resolved outcome below captures whether a validated finding is
+        # accepted. Record policy provenance privately without treating an added
+        # reference as a changed human judgement; withdrawal still restores gaps.
+        source.pop("automatic_acceptances", None)
         checks = []
         for check in source["checks"]:
             if check["id"] in REMINDER_CHECKS:

@@ -220,6 +220,13 @@ def resolve(check, source, bundle, interpretation):
                 "complete",
                 "Explicit operational Pass in original moderator sheet",
             )
+        elif source.get("assessment_kind") == "moderation" and key in source.get(
+            "automatic_acceptances", {}
+        ):
+            status, origin = (
+                source["automatic_acceptances"][key]["status"],
+                "Validated finding accepted under routine moderation policy",
+            )
         elif check["status"] in {"complete", "skipped"} and audit is None:
             status, origin = (
                 check["status"],

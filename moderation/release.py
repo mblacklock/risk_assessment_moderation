@@ -130,6 +130,26 @@ def evidence_bundle(config):
                     if item.get("validation_audits")
                     else "moderation",
                 )
+                if (
+                    evidence["assessment_kind"] == "moderation"
+                    and review.get("state") == "done"
+                    and item.get("state") == "done"
+                ):
+                    from .global_approvals import approvals, automatically_accepted
+                    from .review_policy import approval_key
+
+                    accepted = {
+                        c["id"]: {
+                            "status": c["status"],
+                            "engine_version": c.get("engine_version"),
+                            "approval_key": approval_key(c),
+                            "approval": approvals(review).get(approval_key(c)),
+                        }
+                        for c in item.get("checks", [])
+                        if not human_action(c) and automatically_accepted(review, c)
+                    }
+                    if accepted:
+                        evidence["automatic_acceptances"] = accepted
                 evidence["manual_moderation"] = manual.get(review_id, {}).get(
                     number, {}
                 )

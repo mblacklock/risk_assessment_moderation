@@ -18,6 +18,11 @@ again to reconstruct feedback, and no checking or AI is run.
 - Samples use saved operational decisions and overrides first, including matching
   decisions from the older All batch and preserved decision history. A later
   independent pilot audit does not silently replace saved operational moderation.
+- Routine moderation also reuses validated automatic findings under the main
+  moderation page's exact approval and checking-version policy. These remain
+  labelled as automatic acceptance, not individual human review. Withdrawn or
+  mismatched approvals restore the release hold. Independent validation findings,
+  explicit staff decisions and waivers retain precedence.
 - Validation records use original staff audits together with subsequent agreed
   interpretations. Unrelated audit revisions do not discard earlier agreements;
   explicit later edits to the relevant criterion are recognised.

@@ -1,5 +1,12 @@
 # Changelog
 
+## Match release readiness to routine moderation — 23 November 2026
+
+- Reuse version-matched validated findings accepted by the main routine-moderation
+  workflow, retaining approval provenance and distinguishing them from human review.
+- Preserve staff decisions, waivers and independent audits; withdrawn or unknown
+  approval/checker versions continue to block release. No approval changes or AI.
+
 ## Preserve reviewed feedback through technical refreshes — 23 November 2026
 
 - Compare decision-relevant sources for durable feedback readiness. Technical
