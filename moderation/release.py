@@ -387,7 +387,7 @@ def format_feedback(fields):
         ]
     else:
         lines += [
-            "Your submission has passed the completion and consistency review. This does not constitute approval of the adequacy of the safety controls.",
+            "Your submission has passed the completion and consistency review. Your supervisor’s sign-off remains the approval of the risk assessment and its safety controls.",
             "",
         ]
     for heading, key in [
