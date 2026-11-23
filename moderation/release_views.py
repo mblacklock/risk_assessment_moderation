@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from . import release, release_store, store
+from . import release, release_bulk, release_store, store
 
 
 class SetupForm(forms.Form):
@@ -127,13 +127,20 @@ def index(request):
                     return redirect("moderation:release_index")
             return render(request, "moderation/release_setup.html", {"form": form})
         bundles = release.source_state(register)
+        bulk_state = release_bulk.overview(
+            register, bundles, request.GET.get("scope", "existing")
+        )
     except (ValueError, OSError, KeyError) as error:
         return render(
             request, "moderation/release_error.html", {"error": str(error)}, status=409
         )
     rows = []
+    readiness_rows = {r["number"]: r for r in bulk_state["rows"]}
     for number, record in register["records"].items():
+        if number not in readiness_rows:
+            continue
         bundle = bundles[number]
+        readiness = readiness_rows[number]
         changed = record["source_fingerprint"] != release.digest(bundle)
         valid = release.release_valid(record, bundle)
         proposal = record.get("refreshed_proposal") or record["proposal"]
@@ -147,6 +154,9 @@ def index(request):
         rows.append(
             {
                 **record,
+                "readiness": readiness["readiness"],
+                "bulk_reasons": readiness["reasons"],
+                "edited_draft": readiness["edited"],
                 "valid": valid,
                 "source_changed": changed,
                 "issues": issues,
@@ -184,6 +194,9 @@ def index(request):
     }
     query = request.GET.get("q", "").strip().casefold()
     status = request.GET.get("status", "")
+    readiness_filter = request.GET.get("readiness", "")
+    outcome_filter = request.GET.get("outcome", "")
+    batch_filter = request.GET.get("batch", "")
     rows = [
         r
         for r in rows
@@ -199,6 +212,9 @@ def index(request):
             or (status == "decision" and r["issues"])
             or (status == "awaiting" and r["status"] == "awaiting_feedback")
         )
+        and (not readiness_filter or r["readiness"] == readiness_filter)
+        and (not outcome_filter or r["outcome"] == outcome_filter)
+        and (not batch_filter or r["source_batch"] == batch_filter)
     ]
     sort = request.GET.get("sort", "name")
     if sort not in {"number", "name", "source_batch", "outcome_label", "status_label"}:
@@ -217,6 +233,11 @@ def index(request):
             "sort": sort,
             "direction": "desc" if descending else "asc",
             "saved": request.GET.get("saved") == "1",
+            "bulk": bulk_state,
+            "readiness_filter": readiness_filter,
+            "outcome_filter": outcome_filter,
+            "batch_filter": batch_filter,
+            "batch_options": sorted({r["source_batch"] for r in bulk_state["rows"]}),
         },
     )
 

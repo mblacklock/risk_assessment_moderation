@@ -1,5 +1,23 @@
 # Changelog
 
+## Bulk feedback finalisation — 23 November 2026
+
+- Add separate overviews for existing moderation and independent staff feedback,
+  with readiness counts, proposed outcomes, exception reasons and filters by
+  readiness, outcome and source batch.
+- Add a consolidated public-feedback preview and a clearly labelled review Excel
+  workbook, allowing cohort spot-checks without opening every student individually.
+- Require explicit moderator approval of the exact previewed records; staff-edited
+  drafts require additional confirmation and retain their wording unchanged.
+- Recheck readiness and live source validity at execution. Exclude changed,
+  unresolved or incomplete records with reasons, never replace existing finals,
+  and record the moderator, timestamp and operation reference per finalisation.
+- Make repeated operations idempotent and keep the finalised-only release export
+  restricted to current, explicitly finalised public feedback. No automatic upload,
+  AI rerun or changes to moderation, validation, approvals or checking behaviour.
+- Verify with synthetic records; no real student records are finalised during
+  implementation or testing.
+
 ## Recover completed moderation for release — 23 November 2026
 
 - Reconstruct feedback from saved operational decisions, staff audits, subsequent

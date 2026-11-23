@@ -434,7 +434,8 @@ def test_release_ui_preview_does_not_save_and_finalisation_is_explicit(
 ):
     data, cohort, source = ready_workspace
     page = client.get(reverse("moderation:release_index"))
-    assert page.status_code == 200 and page.context["counts"]["total"] == 3
+    assert page.status_code == 200 and page.context["bulk"]["counts"]["total"] == 2
+    assert page.context["bulk"]["independent_count"] == 1
     number = "w10000002"
     url = reverse("moderation:release_editor", args=[number])
     page = client.get(url)

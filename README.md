@@ -2,8 +2,9 @@
 
 ## Student feedback release
 
-Open **Student feedback release** in the main navigation. The workflow is:
-**Open student → Review generated feedback → Edit wording if needed → Finalise.**
+Open **Student feedback release** in the main navigation. The cohort workflow is:
+**Review exceptions → Preview cohort feedback → Bulk finalise → Export to eLP.**
+Individual wording edits and finalisation remain available when needed.
 This separate local register records intended feedback; nothing is uploaded or sent
 into eLP automatically.
 
@@ -50,7 +51,47 @@ draft or finalised feedback: refreshed proposals remain separately available for
 those records. Existing submissions, decisions, audits, approvals and evaluation
 histories stay unchanged.
 
-### Reviewing and exporting
+### Bulk finalisation
+
+The default overview covers the existing moderated students, separately from the
+independent moderators' group. It shows ready, attention-required and already
+finalised counts, plus the ready group's proposed Pass, Pass with supervisor
+follow-up and Fail outcomes. Filter the list by readiness, outcome and source
+batch. Open exceptions individually; settled audit/tool disagreements and automatic
+Manual check routing do not reopen definite human decisions.
+
+1. Open **Preview cohort feedback & bulk finalise**. Review the consolidated
+   feedback or download the **feedback review workbook — not finalised**. Both
+   contain the ready students' numbers, names, proposed outcomes and full public
+   feedback, without private source material. Spot-check or edit through the
+   existing student editor; opening every record is not required.
+2. Check the number to finalise, outcome breakdown, attention exclusions and
+   already finalised count. Enter the finalising moderator and explicitly confirm
+   that the proposed feedback has been reviewed. Staff-edited drafts are clearly
+   marked and require an additional confirmation approving their current wording.
+3. Choose **Bulk finalise ready feedback**. The server reads current saved sources
+   and rechecks each previewed record before saving. Missing decisions, conflicting
+   sources, unsuitable wording and stale records are excluded. Records changed
+   since preview are excluded with reasons; newly eligible students are not silently
+   added. Reopen the preview after edits. Preview approvals expire after two hours.
+4. Use **Export finalised students only** for the release workbook, then copy the
+   feedback into eLP manually. The review workbook is clearly labelled as a review
+   copy and does not authorise release.
+
+List filters do not silently narrow the bulk action: the preview explicitly shows
+all eligible students in the selected group. The independent moderators' students
+are excluded from the default action. After their feedback is entered and reviewed,
+the same workflow is available from **Open independent feedback**.
+
+Bulk finalisation preserves public wording, waivers, provenance and prior history.
+Each final record records the moderator, timestamp and bulk operation reference.
+Existing finalised records are never replaced by bulk actions, including stale
+finals requiring individual attention. Repeating an operation does not duplicate
+finalisation history. Only the separate release register is written; moderation,
+audits, checking rules, approvals and source feedback histories remain unchanged.
+Opening the overview, preview or review download does not finalise any feedback.
+
+### Individual review and release export
 
 1. Search/filter the register and open **Review feedback**. The generated public
    text appears first; historical findings and source documents remain optional

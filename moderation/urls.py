@@ -1,12 +1,13 @@
 from django.urls import path
 
-from . import release_views, views
+from . import release_bulk_views, release_views, views
 
 app_name = "moderation"
 urlpatterns = [
     path("student-feedback/", release_views.index, name="release_index"),
     path("student-feedback/refresh/", release_views.refresh, name="release_refresh"),
     path("student-feedback/export/", release_views.export, name="release_export"),
+    path("student-feedback/bulk/", release_bulk_views.preview, name="release_bulk"),
     path("student-feedback/<str:number>/", release_views.editor, name="release_editor"),
     path(
         "reviews/<uuid:review_id>/audits/adjudicate/<uuid:submission_id>/<str:criterion>/",
