@@ -12,8 +12,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 
 from . import release_store, store
 from .attempts import select_attempts, submission_timestamp
-from .criteria import BY_ID, REMINDER_CHECKS, effective_status
-from .feedback import INTERNAL, SUPERVISOR_OWNED, suggested_wording
+from .criteria import effective_status
+from .feedback import INTERNAL, suggested_wording
 from .validation import historical_adjudications
 from .workflow import finding_fingerprint
 
@@ -102,6 +102,12 @@ def evidence_bundle(config):
             f"Expected {config['expected_count']} unique selected students; found {len(roster)}."
         )
     sources, supplemental = {}, {}
+    from .release_manual import read_records
+
+    manual = {
+        review_id: read_records(path)
+        for review_id, path in config.get("manual_workbooks", {}).items()
+    }
     for destination, identifiers in [
         (sources, config["source_review_ids"]),
         (supplemental, config.get("supplemental_review_ids", [])),
@@ -116,6 +122,20 @@ def evidence_bundle(config):
                     continue
                 number = student_key(item["number"])
                 evidence = item_evidence(review, item)
+                evidence["assessment_kind"] = config.get("source_kinds", {}).get(
+                    review_id,
+                    "moderation"
+                    if review["title"].casefold().startswith("sample ")
+                    else "validation"
+                    if item.get("validation_audits")
+                    else "moderation",
+                )
+                evidence["manual_moderation"] = manual.get(review_id, {}).get(
+                    number, {}
+                )
+                evidence["original_auditor"] = (item.get("validation_audits") or [{}])[
+                    -1
+                ].get("reviewer") or review.get("audit_details", {}).get("auditor", "")
                 evidence["historical_adjudications"] = [
                     x for x in historical if x["student_number"].casefold() == number
                 ]
@@ -229,237 +249,9 @@ def safe_wording(check, status):
 
 
 def propose(bundle):
-    sources = bundle["sources"]
-    issues, waivers, entries, decisions = [], [], [], []
-    fields = {
-        "outcome": "",
-        "student_corrections": "",
-        "supervisor_completion": "",
-        "supervisor_followup": "",
-    }
-    if not sources:
-        return {
-            **fields,
-            "issues": ["Awaiting independent moderator feedback."],
-            "waivers": [],
-            "decisions": [],
-            "source_batch": "Independent moderator",
-            "original_feedback": [],
-        }
-    if len(sources) != 1:
-        return {
-            **fields,
-            "issues": [
-                "Multiple assessment sources require an explicit choice; no judgements were combined."
-            ],
-            "waivers": [],
-            "decisions": [],
-            "source_batch": "; ".join(s["batch"] for s in sources),
-            "original_feedback": [
-                s["elp_feedback"] for s in sources if s["elp_feedback"]
-            ],
-        }
-    source = sources[0]
-    if not same_attempt(source, bundle["roster"]):
-        return {
-            **fields,
-            "issues": [
-                "The assessment source does not match the selected cohort attempt. Resolve before release."
-            ],
-            "waivers": [],
-            "decisions": [],
-            "source_batch": source["batch"],
-            "original_feedback": [],
-        }
-    audit = (source["validation_audits"] or [{}])[-1]
-    latest = {}
-    for record in source["historical_adjudications"]:
-        latest[record["check"]] = record
-    for record in source["audit_adjudications"]:
-        if record.get("audit_at") == audit.get("at"):
-            latest[record["criterion"]] = record
-    saved = source["elp_feedback"]
-    if saved:
-        issues.append(
-            "Previously generated feedback may be stale. Its wording is retained below for explicit confirmation."
-        )
-    unconfirmed = []
-    for check in source["checks"]:
-        key = check["id"]
-        if key in REMINDER_CHECKS:
-            continue
-        status = effective_status(check)
-        origin = "Unconfirmed automated finding"
-        known = False
-        action_statuses = []
-        for candidate in [source] + bundle["supplemental"]:
-            if not same_attempt(candidate, bundle["roster"]):
-                continue
-            other = next((c for c in candidate["checks"] if c["id"] == key), None)
-            if other and human_action(other):
-                action_statuses.append(effective_status(other))
-        if len(set(action_statuses)) > 1:
-            issues.append(
-                f"{check['label']}: contradictory saved moderation decisions; no automatic merge."
-            )
-            status = "review"
-        elif action_statuses:
-            status, known, origin = (
-                action_statuses[0],
-                True,
-                "Saved moderation decision",
-            )
-            if key in latest:
-                agreed = (
-                    "complete"
-                    if recorded_waiver(latest[key])
-                    else adjudicated_status(latest[key])
-                )
-                if agreed and agreed != status:
-                    issues.append(
-                        f"{check['label']}: the agreed interpretation and saved moderation disagree. Resolve which is final."
-                    )
-                    status, origin = (
-                        agreed,
-                        "Latest agreed interpretation — conflicting moderation retained for resolution",
-                    )
-        elif key in latest:
-            record = latest[key]
-            if recorded_waiver(record):
-                waivers.append({"criterion": key, "record": record})
-                if record.get("agreed_outcome") in {"issue", "complete"}:
-                    status, known, origin = "complete", True, "Recorded staff waiver"
-                else:
-                    status = "review"
-                    issues.append(
-                        f"{check['label']}: the recorded cleanup waiver does not establish the final criterion outcome. Confirm it explicitly."
-                    )
-            else:
-                agreed = adjudicated_status(record)
-                if agreed:
-                    status, known, origin = (
-                        agreed,
-                        True,
-                        "Explicit agreed interpretation",
-                    )
-                else:
-                    status = "review"
-                    issues.append(
-                        f"{check['label']}: the agreed interpretation has no unambiguous final release outcome."
-                    )
-        elif key in audit.get("findings", {}):
-            status, known, origin = (
-                audit["findings"][key],
-                True,
-                "Independent audit proposal (not final moderation)",
-            )
-            if (
-                status in OUTCOMES
-                and effective_status(check) in OUTCOMES
-                and status != effective_status(check)
-            ):
-                issues.append(
-                    f"{check['label']}: the audit and automated outcome differ without a recorded agreed interpretation."
-                )
-        elif status in {"review", "moderator", "unable", "issue", "supervisor"}:
-            unconfirmed.append(check["label"])
-        if status not in {"complete", "issue", "supervisor", "skipped"}:
-            issues.append(f"{check['label']}: a final judgement is required.")
-        decisions.append(
-            {
-                "criterion": key,
-                "label": check["label"],
-                "proposed": status,
-                "origin": origin,
-            }
-        )
-        if status not in {"issue", "supervisor"}:
-            continue
-        wording = saved.get("wording", {}).get(key, "")
-        if not wording:
-            wording = safe_wording(check, status) if known else ""
-        if not wording:
-            issues.append(
-                f"{check['label']}: enter a specific student-facing action or record a waiver."
-            )
-        audience = (
-            "supervisor_followup"
-            if status == "supervisor"
-            else "supervisor_completion"
-            if key in SUPERVISOR_OWNED
-            else "student_corrections"
-        )
-        entries.append(
-            {"criterion": key, "text": wording, "audience": audience, "check": check}
-        )
-    if unconfirmed:
-        issues.append(
-            "Saved operational confirmation is missing for: "
-            + ", ".join(unconfirmed)
-            + ". Reuse existing judgements; do not rerun AI."
-        )
-    # Consolidate only wording about the SAME absent/vague location. Never hide
-    # a distinct incompatibility finding just because a location issue exists.
-    location = next((e for e in entries if e["criterion"] == "location"), None)
-    facilities = next((e for e in entries if e["criterion"] == "facilities"), None)
-    if (
-        location
-        and facilities
-        and re.search(
-            r"not specific|generic|does not clearly identify|insufficient|vague",
-            facilities["check"].get("message", ""),
-            re.I,
-        )
-        and not re.search(
-            r"incompatib|not permitted|cannot be|not allowed",
-            facilities["check"].get("message", ""),
-            re.I,
-        )
-    ):
-        entries.remove(facilities)
-        issues = [
-            x
-            for x in issues
-            if not x.startswith(facilities["check"]["label"] + ": enter")
-        ]
-    for audience in (
-        "student_corrections",
-        "supervisor_completion",
-        "supervisor_followup",
-    ):
-        texts = []
-        for entry in entries:
-            if entry["audience"] != audience or not entry["text"]:
-                continue
-            label = BY_ID[entry["criterion"]]["label"]
-            text = label + ": " + entry["text"]
-            if text not in texts:
-                texts.append(text)
-        fields[audience] = "\n\n".join(texts)
-    statuses = [d["proposed"] for d in decisions]
-    missing = set(BY_ID) - REMINDER_CHECKS - {c["id"] for c in source["checks"]}
-    if missing:
-        issues.append(
-            "The source has missing criteria; confirm the complete final outcome rather than assuming a Pass."
-        )
-        statuses.append("review")
-    fields["outcome"] = (
-        "issue"
-        if "issue" in statuses
-        else ""
-        if any(x not in {"complete", "supervisor", "skipped"} for x in statuses)
-        else "supervisor"
-        if "supervisor" in statuses
-        else "complete"
-    )
-    return {
-        **fields,
-        "issues": list(dict.fromkeys(issues)),
-        "waivers": waivers,
-        "decisions": decisions,
-        "source_batch": source["batch"],
-        "original_feedback": [saved] if saved else [],
-    }
+    from .release_decisions import reconstruct
+
+    return reconstruct(bundle)
 
 
 def new_record(number, bundle):
@@ -483,7 +275,15 @@ def new_record(number, bundle):
     }
 
 
-def create(cohort_id, source_ids, supplemental_ids=(), expected_count=106):
+def create(
+    cohort_id,
+    source_ids,
+    supplemental_ids=(),
+    expected_count=106,
+    *,
+    manual_workbooks=None,
+    source_kinds=None,
+):
     if cohort_id in source_ids or len(source_ids) != len(set(source_ids)):
         raise ValueError(
             "Choose distinct assessment sources separate from the cohort roster."
@@ -493,6 +293,8 @@ def create(cohort_id, source_ids, supplemental_ids=(), expected_count=106):
         "source_review_ids": list(source_ids),
         "supplemental_review_ids": list(supplemental_ids),
         "expected_count": expected_count,
+        "manual_workbooks": manual_workbooks or {},
+        "source_kinds": source_kinds or {},
     }
     bundles = evidence_bundle(config)
     with store.LOCK:
@@ -648,10 +450,7 @@ def save_record(
                 )
             validate_final(fields)
             needs_resolution = bool(
-                any(
-                    x != "Awaiting independent moderator feedback."
-                    for x in record["proposal"]["issues"]
-                )
+                propose(bundle).get("decision_gaps")
                 or record["source_fingerprint"] != current_token
             )
             if needs_resolution and not (
@@ -676,6 +475,7 @@ def save_record(
         )
         record.update(
             status="finalised" if finalise else "draft",
+            generated_text=format_feedback(fields),
             final_text=format_feedback(fields) if finalise else "",
             finalised_at=store.now() if finalise else "",
         )
@@ -688,6 +488,7 @@ def save_record(
                 name=bundle["roster"]["name"],
                 attempt=bundle["roster"]["submitted"],
             )
+            data["last_finaliser"] = fields.get("moderator", "").strip()
         record["history"].append(
             {
                 "at": store.now(),
@@ -709,6 +510,53 @@ def refresh(revision):
             # proposal as reference only, never replace staff-entered content.
             record["refreshed_proposal"] = propose(bundle)
         data["history"].append({"at": store.now(), "action": "refresh_sources"})
+
+    return release_store.update(revision, change)
+
+
+def recover_recorded_judgements(revision):
+    """Rebuild only machine-prepared proposals; protect all staff edits/finals."""
+
+    def change(data):
+        bundles = source_state(data)
+        for number, record in data["records"].items():
+            bundle = bundles[number]
+            proposal = propose(bundle)
+            if record["status"] not in {"proposed", "awaiting_feedback"} or any(
+                entry["action"] in {"save_draft", "finalise"}
+                for entry in record["history"]
+            ):
+                record["refreshed_proposal"] = proposal
+                continue
+            if not bundle["sources"]:
+                continue
+            previous = copy.deepcopy(
+                {k: v for k, v in record.items() if k != "history"}
+            )
+            record.update({key: proposal[key] for key in PUBLIC_FIELDS})
+            record.update(
+                proposal=proposal,
+                source_evidence=bundle,
+                source_fingerprint=digest(bundle),
+                generated_text=format_feedback(proposal),
+            )
+            if not record.get("original_moderator_feedback"):
+                record["original_moderator_feedback"] = proposal.get(
+                    "manual_moderation", {}
+                ).get("feedback", "")
+            if not record.get("moderator"):
+                record["moderator"] = bundle["sources"][0].get("original_auditor", "")
+            record["history"].append(
+                {
+                    "at": store.now(),
+                    "action": "recover_recorded_judgements",
+                    "moderator": "Evidence extraction — not new moderation or finalisation",
+                    "previous": previous,
+                }
+            )
+        data["history"].append(
+            {"at": store.now(), "action": "recover_recorded_judgements"}
+        )
 
     return release_store.update(revision, change)
 

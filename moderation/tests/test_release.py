@@ -239,7 +239,9 @@ def test_stale_feedback_wording_retained_but_not_finalised(settings, tmp_path):
     record = data["records"][item["number"]]
     assert "A previously edited public action." in record["student_corrections"]
     assert record["status"] != "finalised"
-    assert "stale" in " ".join(record["proposal"]["issues"])
+    assert not record["proposal"]["decision_gaps"]
+    assert not record["proposal"]["wording_gaps"]
+    assert record["proposal"]["annotations"]
     assert store.load(source["id"]) == source
 
 
@@ -381,6 +383,7 @@ def test_conflicts_missing_wording_and_attempt_mismatch_held(settings, tmp_path)
         {
             "audit_at": "a1",
             "criterion": "location",
+            "classification": "unresolved",
             "reason": "This classification is ambiguous.",
         }
     ]
@@ -505,13 +508,16 @@ def test_missing_criterion_and_unresolved_audit_disagreement_are_held(
         }
     ]
     item["checks"][0]["status"] = "issue"
-    item["checks"].pop()
+    absent = item["checks"].pop()["id"]
+    item["validation_audits"][0]["findings"].pop(absent)
     store.save(source)
     data = release.create(cohort["id"], [source["id"]], expected_count=3)
     proposal = data["records"][item["number"]]["proposal"]
     assert proposal["outcome"] == ""
-    assert any("audit and automated outcome differ" in x for x in proposal["issues"])
-    assert any("missing criteria" in x for x in proposal["issues"])
+    assert not any(
+        "audit and automated outcome differ" in x for x in proposal["issues"]
+    )
+    assert any("Final judgements are absent" in x for x in proposal["decision_gaps"])
 
 
 @pytest.mark.parametrize(

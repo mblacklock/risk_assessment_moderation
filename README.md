@@ -2,60 +2,83 @@
 
 ## Student feedback release
 
-Open **Student feedback release** in the main navigation. This is the authoritative
-local register of intended student feedback, separate from the checker and the
-independent validation records. It never sends or uploads to eLP.
+Open **Student feedback release** in the main navigation. The workflow is:
+**Open student → Review generated feedback → Edit wording if needed → Finalise.**
+This separate local register records intended feedback; nothing is uploaded or sent
+into eLP automatically.
 
-The register uses the 106 selected latest attempts in **All v2** as its roster.
-On initial setup, choose Samples 1–5 and Validation v1/v2 as the assessment sources,
-with the older All batch as a supplemental source of saved moderation actions.
-The initial register contains 65 source-backed proposals and 41 places for
-independent moderator feedback. Every record remains unfinalised until a staff
-member explicitly confirms it. Student numbers are unique; ambiguous latest
-attempts, changed attachments and contradictory decisions are held for resolution.
+The 106 selected latest attempts in **All v2** supply the roster. Samples 1–5 and
+Validation v1/v2 supply the existing 65 assessments; the remaining 41 roster rows
+retain the independent moderators' manual-entry route. No submissions are processed
+again to reconstruct feedback, and no checking or AI is run.
 
-1. Search or filter the cohort and open **Finalise feedback**. Review the proposed
-   outcome, student corrections, required supervisor completion and non-blocking
-   supervisor follow-up. Separate numbered actions with blank lines.
-2. Use the read-only private source panel for the original audit, moderation notes,
-   historical interpretations and previously edited feedback. Independent audits
-   are proposals, not final moderation. Explicit agreed interpretations supersede
-   earlier technical findings; recorded waivers are retained separately. Ambiguous
-   prose or contradictory judgements require an explicit decision, not a guess.
-3. Edit/consolidate the public wording. Stale feedback is retained as source wording
-   for confirmation; it is not silently replaced. Remove parser terminology and
-   duplicate location corrections without removing distinct requirements. Record
-   unresolved decisions or waivers in the private resolution field.
-4. Enter the responsible moderator and explicitly confirm the final outcome and
-   feedback. Saving a draft or previewing does not finalise anything. Finalisation
-   does not require revisiting 24 check dropdowns or running pending AI. A Pass
-   cannot contain required corrections; non-blocking follow-up has its own outcome.
-5. Use **Export finalised students only** for the release workbook. The alternative
-   full-cohort export contains all 106 rows, with final outcomes/feedback blank for
-   unfinalised or source-changed records. Check the exported wording and manually
-   copy it into Blackboard/eLP. A supervisor-follow-up Pass exports as Pass for eLP.
+### Recovering completed moderation
 
-For the other 41 students, open their existing roster row and enter the independent
-moderator's explicit outcome and the three action categories. Preserve their
-original feedback in its private field. No automated processing is required and no
-outcome is inferred from free text. Manual entry is supported; bulk import is not
-part of this first operational release.
+- Samples use saved operational decisions and overrides first, including matching
+  decisions from the older All batch and preserved decision history. A later
+  independent pilot audit does not silently replace saved operational moderation.
+- Validation records use original staff audits together with subsequent agreed
+  interpretations. Unrelated audit revisions do not discard earlier agreements;
+  explicit later edits to the relevant criterion are recognised.
+- Linked original manual moderation workbooks provide recorded Pass/Fail outcomes,
+  written comments and specific correction details. They are read-only sources,
+  identified by path, sheet, row and file fingerprint in the private register. An
+  operational Pass is not turned into Fail merely because an independent technical
+  rubric marks a minor defect. Later explicit agreed correction judgements and
+  recorded waivers are retained separately; no new waiver is inferred.
+- An automatic Manual check/referral is distinct from the staff judgement. It does
+  not reopen a definite human outcome. Technical routing and superseded findings
+  remain in the optional source panel.
+- Previously edited public wording is reused where consistent with the recorded
+  final judgement. A stale checksum or format alone does not require repeating
+  moderation. Original texts and all histories are preserved.
+- Controlled instructions replace parser language, consolidate duplicate location
+  corrections, separate missing supervisor completion from non-blocking follow-up,
+  and retain relevant additional written requirements. Private comments, research
+  annotations, raw AI explanations and source quotations are not copied into the
+  public output.
 
-The new workbook has one sheet and only five public columns: student number, name,
-Pass/Fail, final feedback and finalisation status. It excludes notes, evidence and
-adjudications. The existing detailed moderation export remains unchanged and is
-staff-only. Neither export publishes anything automatically.
+Only genuinely absent or contradictory final judgements appear as saved-decision
+gaps. Missing public wording is classified separately and does not become a new
+academic decision. Where a final decision was not persisted, the record identifies
+that specific missing decision; it does not claim the submission was never reviewed
+or require the moderator to revisit 24 criteria.
 
-The private release register is stored at
-`reviews/feedback-release/register.json` (excluded from Git). Drafts, finalisation
-and explicit replacements retain history, dates, provenance and responsible staff.
-Refreshing sources does not rerun checking/AI or overwrite edited/finalised wording.
-Exports also check sources directly: changed evidence blocks previously finalised
-feedback even before a refresh. Replacing a finalised record needs a separate
-confirmation; finalising against changed/ambiguous evidence also needs a recorded
-resolution. Original submissions, review JSON, validation snapshots and approvals
-are never modified by the release workflow. Checking provenance is unchanged.
+The release preparation command refreshes untouched machine-prepared proposals
+with recovered decisions and generated text. It never overwrites a staff-edited
+draft or finalised feedback: refreshed proposals remain separately available for
+those records. Existing submissions, decisions, audits, approvals and evaluation
+histories stay unchanged.
 
+### Reviewing and exporting
+
+1. Search/filter the register and open **Review feedback**. The generated public
+   text appears first; historical findings and source documents remain optional
+   supporting references. Open **Edit wording or recorded outcome** only if needed.
+2. Enter the responsible finalising moderator and confirm the feedback for release.
+   A previously recorded auditor or the last finaliser can prepopulate this field.
+   Settled records do not ask for a new decision note or a second moderation
+   checklist. A genuine gap needs the located final judgement/source reference.
+3. Use **Export finalised students only** for actual release. The full-cohort
+   alternative includes all 106 students but leaves outcomes and feedback blank
+   for unfinished or source-changed records. Pass with supervisor follow-up exports
+   as Pass for eLP. Copy the final text into eLP manually.
+
+For the other 41 students, enter the independent moderator's explicit outcome,
+student corrections, required supervisor completion and non-blocking supervisor
+follow-up in the existing roster row. Preserve their original feedback in its
+private field. No outcome is inferred from free text, no automated checking is
+required, and bulk import is not needed for this first release.
+
+The release workbook has one sheet and five public columns: student number, name,
+Pass/Fail, final feedback and finalisation status. Internal evidence and notes are
+excluded. The existing detailed moderation export is unchanged and remains staff-only.
+
+The private register is `reviews/feedback-release/register.json`, excluded from Git.
+It preserves provenance and histories of preparation, staff edits and finalisation.
+Source changes are checked before export; affected finalised records are held until
+explicitly refinalised. Replacement of finalised feedback requires confirmation.
+No feedback is finalised merely because its source moderation has been recovered.
 
 V2 evaluation completed **18 November 2026**: **19 criteria approved, one partly
 approved and four unapproved**. See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDINGS_V2.md)

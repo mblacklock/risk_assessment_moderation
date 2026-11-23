@@ -1,5 +1,24 @@
 # Changelog
 
+## Recover completed moderation for release — 23 November 2026
+
+- Reconstruct feedback from saved operational decisions, staff audits, subsequent
+  agreed interpretations and linked original manual moderation workbooks, without
+  rerunning checking or AI or rewriting any source records.
+- Retain agreements across unrelated audit revisions, recognise actual later
+  criterion edits and distinguish automated referral routing from human judgement.
+- Preserve explicit operational Pass results, recorded waivers, superseded history
+  and consistent previously edited public wording. Do not turn technical rubric
+  defects into new academic Fail outcomes automatically.
+- Separate genuine saved-decision gaps from missing wording; use controlled,
+  specific public instructions and keep raw comments, research annotations and
+  technical source material private.
+- Put generated feedback first in the editor. Settled records need only wording
+  review and explicit release finalisation; detailed source history is optional.
+- Protect staff drafts/finals during reconstruction and retain the 41-student
+  independent manual-entry route and finalised-only public export safeguards.
+
+
 ## Student feedback release register — 23 November 2026
 
 - Add a separate 106-student release register from the selected All v2 roster,

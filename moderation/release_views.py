@@ -136,17 +136,14 @@ def index(request):
         bundle = bundles[number]
         changed = record["source_fingerprint"] != release.digest(bundle)
         valid = release.release_valid(record, bundle)
-        issues = list(record["proposal"]["issues"])
+        proposal = record.get("refreshed_proposal") or record["proposal"]
+        issues = list(proposal.get("decision_gaps", proposal["issues"]))
         if changed:
             issues.insert(0, "Source evidence changed; review before release.")
         if valid:
             issues = []
-        academic = changed or any(
-            ": enter a specific" not in issue
-            and not issue.startswith("Previously generated")
-            and issue != "Awaiting independent moderator feedback."
-            for issue in issues
-        )
+        academic = changed or bool(proposal.get("decision_gaps", []))
+
         rows.append(
             {
                 **record,
@@ -167,7 +164,7 @@ def index(request):
                 if academic
                 else "Wording confirmation required"
                 if issues
-                else "Proposed — not finalised",
+                else "Feedback ready to review — not finalised",
             }
         )
     counts = {
@@ -180,6 +177,10 @@ def index(request):
         "awaiting": sum(r["status"] == "awaiting_feedback" for r in rows),
         "finalised": sum(r["valid"] for r in rows),
         "academic": sum(r["academic_decision"] for r in rows),
+        "reconstructed": sum(
+            bool(bundles[r["number"]]["sources"]) and not r["academic_decision"]
+            for r in rows
+        ),
     }
     query = request.GET.get("q", "").strip().casefold()
     status = request.GET.get("status", "")
@@ -237,6 +238,8 @@ def editor(request, number):
         )
     token = release.digest(bundle)
     initial = {**record, "revision": register["revision"], "source_token": token}
+    if not initial.get("moderator"):
+        initial["moderator"] = register.get("last_finaliser", "")
     form = ReleaseForm(
         request.POST if request.method == "POST" else None, initial=initial
     )
@@ -279,11 +282,13 @@ def editor(request, number):
                 "adjudications": source["audit_adjudications"],
                 "historical": source["historical_adjudications"],
                 "feedback": source["elp_feedback"],
+                "manual": source.get("manual_moderation", {}),
                 "files": source["files"],
                 "matches": release.same_attempt(source, bundle["roster"]),
             }
         )
-    issues = list(record["proposal"]["issues"])
+    proposal = record.get("refreshed_proposal") or record["proposal"]
+    issues = list(proposal.get("decision_gaps", proposal["issues"]))
     if record["source_fingerprint"] != token:
         issues.insert(
             0,
@@ -302,6 +307,13 @@ def editor(request, number):
             "refreshed": record.get("refreshed_proposal"),
             "valid": release.release_valid(record, bundle),
             "preview_unsaved": request.method == "POST",
+            "wording_gaps": proposal.get("wording_gaps", []),
+            "has_sources": bool(bundle["sources"]),
+            "manual_sources": [
+                s.get("manual_moderation")
+                for s in bundle["sources"]
+                if s.get("manual_moderation")
+            ],
         },
     )
     response["Cache-Control"] = "no-store"
