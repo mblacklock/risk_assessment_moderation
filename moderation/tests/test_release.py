@@ -286,7 +286,9 @@ def test_changed_evidence_blocks_export_before_refresh_and_stale_editor(
     data, cohort, source = ready_workspace
     data = save(data)
     stale = release.digest(release.source_state(data)["w10000000"])
-    source["submissions"][0]["checks"][0]["message"] = "Changed saved evidence"
+    source["submissions"][0]["checks"][0].update(
+        status="issue", message="Changed saved evidence"
+    )
     store.save(source)
     bundles = release.source_state(data)
     assert not release.release_valid(data["records"]["w10000000"], bundles["w10000000"])

@@ -141,7 +141,7 @@ def index(request):
             continue
         bundle = bundles[number]
         readiness = readiness_rows[number]
-        changed = record["source_fingerprint"] != release.digest(bundle)
+        changed = release.source_changed(record, bundle)
         valid = release.release_valid(record, bundle)
         proposal = record.get("refreshed_proposal") or record["proposal"]
         issues = list(proposal.get("decision_gaps", proposal["issues"]))
@@ -304,17 +304,20 @@ def editor(request, number):
                 "historical": source["historical_adjudications"],
                 "feedback": source["elp_feedback"],
                 "manual": source.get("manual_moderation", {}),
+                "conversation": source.get("conversation_decisions", {}),
+                "batch_acceptance": register.get(
+                    "conversation_batch_acceptances", {}
+                ).get(source["review_id"], {}),
                 "files": source["files"],
                 "matches": release.same_attempt(source, bundle["roster"]),
             }
         )
-    proposal = record.get("refreshed_proposal") or record["proposal"]
+    proposal = release.propose(bundle)
     issues = list(proposal.get("decision_gaps", proposal["issues"]))
-    if record["source_fingerprint"] != token:
-        issues.insert(
-            0,
-            "Source evidence changed. Review the current source and explicitly replace/refinalise before release.",
-        )
+    if release.source_changed(record, bundle):
+        from .release_sources import change_summary
+
+        issues = change_summary(record, bundle) + issues
     response = render(
         request,
         "moderation/release_editor.html",

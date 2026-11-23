@@ -52,10 +52,11 @@ def classify(record, bundle):
             row["reason_codes"].append(code)
         row["reasons"].append(detail or REASONS[code])
 
-    if record["status"] == "finalised" or record[
-        "source_fingerprint"
-    ] != release.digest(bundle):
-        problem("source")
+    if record["status"] == "finalised" or release.source_changed(record, bundle):
+        from .release_sources import change_summary
+
+        for reason in change_summary(record, bundle) or [REASONS["source"]]:
+            problem("source", reason)
     if scope == "independent" and record["status"] == "awaiting_feedback":
         problem("awaiting")
     else:

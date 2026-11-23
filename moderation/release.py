@@ -139,6 +139,9 @@ def evidence_bundle(config):
                 evidence["historical_adjudications"] = [
                     x for x in historical if x["student_number"].casefold() == number
                 ]
+                recovered = config.get("conversation_decisions", {}).get(number, {})
+                if recovered and recovered.get("review_id") == review_id:
+                    evidence["conversation_decisions"] = recovered
                 destination.setdefault(number, []).append(evidence)
     result = {}
     for item in roster:
@@ -331,8 +334,14 @@ def release_valid(record, bundle):
     return bool(
         record["status"] == "finalised"
         and record.get("final_text")
-        and record["source_fingerprint"] == digest(bundle)
+        and not source_changed(record, bundle)
     )
+
+
+def source_changed(record, bundle):
+    from .release_sources import changed
+
+    return changed(record, bundle)
 
 
 def paragraph_actions(value):
@@ -450,8 +459,7 @@ def save_record(
                 )
             validate_final(fields)
             needs_resolution = bool(
-                propose(bundle).get("decision_gaps")
-                or record["source_fingerprint"] != current_token
+                propose(bundle).get("decision_gaps") or source_changed(record, bundle)
             )
             if needs_resolution and not (
                 resolve and fields.get("resolution", "").strip()
@@ -514,12 +522,14 @@ def refresh(revision):
     return release_store.update(revision, change)
 
 
-def recover_recorded_judgements(revision):
+def recover_recorded_judgements(revision, numbers=None):
     """Rebuild only machine-prepared proposals; protect all staff edits/finals."""
 
     def change(data):
         bundles = source_state(data)
         for number, record in data["records"].items():
+            if numbers is not None and number not in numbers:
+                continue
             bundle = bundles[number]
             proposal = propose(bundle)
             if record["status"] not in {"proposed", "awaiting_feedback"} or any(

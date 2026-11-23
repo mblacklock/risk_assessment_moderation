@@ -1,5 +1,20 @@
 # Changelog
 
+## Preserve reviewed feedback through technical refreshes — 23 November 2026
+
+- Compare decision-relevant sources for durable feedback readiness. Technical
+  extraction metadata, grouping, ordering and harmless wording refreshes no longer
+  reopen unchanged judgements. File, attempt, staff-decision and material feedback
+  changes still block release; live preview tokens remain strict.
+- Support dated, source-bound conversation decisions in release-only provenance,
+  preserving batch acceptance separately from specific criterion judgements and
+  retaining later superseding decisions. Keep transcript material out of public
+  feedback and never use batch acceptance as a blanket Pass.
+- Allow targeted proposal recovery without touching unrelated release records,
+  staff drafts, finalised text or original moderation/evaluation histories.
+- Show recovered agreements in optional supporting information and describe
+  material source changes in the editor. No checking, AI or real finalisation.
+
 ## Bulk feedback finalisation — 23 November 2026
 
 - Add separate overviews for existing moderation and independent staff feedback,

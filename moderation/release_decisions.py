@@ -10,6 +10,15 @@ DEFINITE = {"complete", "issue", "supervisor", "skipped"}
 ROUTING = {"review", "moderator", "unable"}
 
 
+def conversation_matches(source):
+    recovered = source.get("conversation_decisions", {})
+    return bool(
+        recovered
+        and recovered.get("attachment_hashes") == source.get("attachment_hashes")
+        and recovered.get("submitted") == source.get("submitted")
+    )
+
+
 def stamp(value):
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
@@ -27,6 +36,17 @@ def latest_interpretations(source):
         source.get("audit_adjudications", []), key=lambda r: r.get("at", "")
     ):
         latest[record["criterion"]] = record
+    if conversation_matches(source):
+        for record in sorted(
+            source["conversation_decisions"].get("decisions", []), key=lambda r: r["at"]
+        ):
+            key = record["criterion"]
+            prior = latest.get(key)
+            if prior is None or (
+                stamp(prior.get("at")) is not None
+                and stamp(record["at"]) > stamp(prior["at"])
+            ):
+                latest[key] = record
     return latest
 
 
@@ -270,6 +290,13 @@ def public_action(check, decision, source):
         and not UNSUITABLE.search(saved)
     ):
         return saved
+    recovered_wording = (decision.get("interpretation") or {}).get("public_wording", "")
+    if (
+        recovered_wording
+        and not INTERNAL.search(recovered_wording)
+        and not UNSUITABLE.search(recovered_wording)
+    ):
+        return recovered_wording
     manual = relevant_manual_text(
         key, source.get("manual_moderation", {}).get("feedback", "")
     )
@@ -518,6 +545,10 @@ def reconstruct(bundle):
     by_key = {d["criterion"]: d for d in decisions}
     missing = set(BY_ID) - REMINDER_CHECKS - set(by_key)
     gaps = [f"{d['label']}: {d['gap']}" for d in decisions if d["gap"]]
+    if source.get("conversation_decisions") and not conversation_matches(source):
+        gaps.append(
+            "The recovered conversation decisions refer to different source files or a different submitted attempt."
+        )
     manual = source.get("manual_moderation", {})
     if manual.get("outcome_original") and not manual.get("outcome"):
         gaps.append(
@@ -660,4 +691,7 @@ def reconstruct(bundle):
         ],
         "original_feedback": [saved] if saved else [],
         "manual_moderation": source.get("manual_moderation", {}),
+        "conversation_acceptance": source.get("conversation_decisions", {}).get(
+            "acceptance", {}
+        ),
     }

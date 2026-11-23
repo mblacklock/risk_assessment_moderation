@@ -45,6 +45,14 @@ academic decision. Where a final decision was not persisted, the record identifi
 that specific missing decision; it does not claim the submission was never reviewed
 or require the moderator to revisit 24 criteria.
 
+Dated decisions recovered from an earlier conversation can be linked in the private
+release register, with the transcript reference and the matching submission timestamp
+and attachment hashes. They participate in the same chronology as other recorded
+judgements; later agreed decisions supersede them. The original audits and review
+files are not rewritten. Batch acceptance is retained as supporting history and is
+not a blanket Pass or a resolution of ambiguous individual findings. Recovered public
+instructions are explicitly separate from private transcript quotations.
+
 The release preparation command refreshes untouched machine-prepared proposals
 with recovered decisions and generated text. It never overwrites a staff-edited
 draft or finalised feedback: refreshed proposals remain separately available for
@@ -120,6 +128,15 @@ It preserves provenance and histories of preparation, staff edits and finalisati
 Source changes are checked before export; affected finalised records are held until
 explicitly refinalised. Replacement of finalised feedback requires confirmation.
 No feedback is finalised merely because its source moderation has been recovered.
+
+Source validity compares decision-relevant information, not a checksum of every
+technical checker field. Reordering criteria, changing groups, extraction-version
+metadata and revised explanations that leave decisions and feedback unchanged do
+not reopen completed moderation. Changed files, attempts, staff decisions, unresolved
+findings or required public instructions remain material. An automatic referral
+does not displace a definite recorded human judgement. The editor identifies material
+changes specifically. Live editor and bulk-preview tokens remain strict: changes
+after opening a preview still require a fresh preview before approval.
 
 V2 evaluation completed **18 November 2026**: **19 criteria approved, one partly
 approved and four unapproved**. See [EVALUATION_FINDINGS_V2.md](EVALUATION_FINDINGS_V2.md)

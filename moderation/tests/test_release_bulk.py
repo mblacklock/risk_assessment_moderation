@@ -118,7 +118,7 @@ def test_changed_source_is_excluded_at_execution_others_can_proceed(ready_worksp
     result = release_bulk.finalise(preview, "Synthetic staff", confirm=True)
     assert [r["number"] for r in result["finalised"]] == ["w10000001"]
     assert result["excluded"][0]["number"] == "w10000000"
-    assert "Source evidence changed" in result["excluded"][0]["reason"]
+    assert "changed" in result["excluded"][0]["reason"]
     assert release_store.load()["records"]["w10000000"]["status"] == "proposed"
 
 
@@ -295,7 +295,9 @@ def test_release_export_only_contains_current_finals_and_public_text(ready_works
     assert book.active.max_row == 3
     assert len(list(book.active.values)[0]) == 5
     book.close()
-    source["submissions"][0]["checks"][0]["message"] = "private change"
+    source["submissions"][0]["checks"][0].update(
+        status="issue", message="private change"
+    )
     store.save(source)
     book = load_workbook(
         io.BytesIO(release.export_xlsx(final, release.source_state(final), True)),
