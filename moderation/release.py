@@ -393,7 +393,7 @@ def format_feedback(fields):
     for heading, key in [
         ("Student corrections", "student_corrections"),
         ("Supervisor completion required before resubmission", "supervisor_completion"),
-        ("Supervisor follow-up (non-blocking)", "supervisor_followup"),
+        ("Supervisor follow-up (not required for resubmission)", "supervisor_followup"),
     ]:
         actions = paragraph_actions(fields.get(key, ""))
         if not actions:
@@ -425,11 +425,11 @@ def validate_final(fields):
         )
     if outcome == "supervisor" and not followup:
         raise ValueError(
-            "Pass — supervisor follow-up requires a specific non-blocking supervisor action."
+            "Pass — supervisor follow-up requires a specific supervisor action that is not required for resubmission."
         )
     if outcome == "complete" and followup:
         raise ValueError(
-            "Select Pass — supervisor follow-up when non-blocking follow-up is included."
+            "Select Pass — supervisor follow-up when follow-up that is not required for resubmission is included."
         )
     if not fields.get("moderator", "").strip():
         raise ValueError(

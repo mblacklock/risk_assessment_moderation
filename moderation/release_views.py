@@ -49,7 +49,7 @@ class ReleaseForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 4}),
     )
     supervisor_followup = forms.CharField(
-        label="Non-blocking supervisor follow-up",
+        label="Supervisor follow-up (not required for resubmission)",
         required=False,
         max_length=18000,
         widget=forms.Textarea(attrs={"rows": 4}),

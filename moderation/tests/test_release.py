@@ -277,7 +277,7 @@ def test_finalisation_replacement_history_and_refresh_protect_existing(ready_wor
     )
     revised = data["records"][record["number"]]
     assert revised["history"][-1]["previous"]["final_text"] == original["final_text"]
-    assert "Supervisor follow-up (non-blocking)" in revised["final_text"]
+    assert "Supervisor follow-up (not required for resubmission)" in revised["final_text"]
 
 
 def test_changed_evidence_blocks_export_before_refresh_and_stale_editor(

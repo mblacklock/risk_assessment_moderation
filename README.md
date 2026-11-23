@@ -48,7 +48,7 @@ again to reconstruct feedback, and no checking or AI is run.
   final judgement. A stale checksum or format alone does not require repeating
   moderation. Original texts and all histories are preserved.
 - Controlled instructions replace parser language, consolidate duplicate location
-  corrections, separate missing supervisor completion from non-blocking follow-up,
+  corrections, separate missing supervisor completion from follow-up that is not required for resubmission,
   and retain relevant additional written requirements. Private comments, research
   annotations, raw AI explanations and source quotations are not copied into the
   public output.
@@ -128,8 +128,8 @@ Opening the overview, preview or review download does not finalise any feedback.
    as Pass for eLP. Copy the final text into eLP manually.
 
 For the other 41 students, enter the independent moderator's explicit outcome,
-student corrections, required supervisor completion and non-blocking supervisor
-follow-up in the existing roster row. Preserve their original feedback in its
+student corrections, required supervisor completion and supervisor
+follow-up that is not required for resubmission in the existing roster row. Preserve their original feedback in its
 private field. No outcome is inferred from free text, no automated checking is
 required, and bulk import is not needed for this first release.
 
@@ -339,7 +339,7 @@ source quotes and rejected AI/extraction claims are not copied into feedback.
 Duplicate rating-completion/reduction findings are consolidated. Repeated missing
 scores are grouped by rows, administrative questions are named, and tutor feedback
 identifies the actual checklist items. Required supervisor signatures are grouped
-by form, separately from non-blocking follow-up; Yes/No instructions appear once.
+by form, separately from follow-up that is not required for resubmission; Yes/No instructions appear once.
 The feedback uses action wording rather than raw check messages. Format upgrades
 require regeneration, preserve previous versions and carry forward manually edited
 public wording where the reviewed findings have not changed. Required missing
