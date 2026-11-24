@@ -493,6 +493,11 @@ cell when it is still visible. **Save and open next** moves through outstanding
 unreviewed flagged checks in the current grid order and filters, returning to the grid when
 no other matching check remains. The back link also keeps your grid filters.
 
+The current student's name and number remain visible while reviewing: above the
+source documents in the sticky desktop sidebar, or in a compact sticky header on
+narrow screens. Navigation renders the next student's identifiers automatically;
+review controls, decisions and queue behaviour are unchanged.
+
 Each row shows Reviewed below its overall outcome when all its flagged checks
 have saved moderation decisions; otherwise it offers a Review link to the first unreviewed flagged finding, or
 shows partial progress. The review link is spaced below the outcome pill. This uses all flagged checks for the student, regardless of grid filters.

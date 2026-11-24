@@ -1,10 +1,12 @@
 import copy
+import re
 import uuid
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.urls import reverse
+from django.utils.html import escape
 
 from moderation import jobs, store
 from moderation.criteria import effective_status
@@ -73,6 +75,69 @@ def test_confirm_issue_returns_to_filtered_grid_and_marks_reviewed(
     page = client.get(response.url)
     assert page.context["reviewed_count"] == 1 and page.context["flagged_count"] == 4
     assert b"Reviewed" in page.content
+
+
+def identity_block(response, variant="sidebar"):
+    html = response.content.decode()
+    match = re.search(
+        rf'<div class="review-student-identity review-student-{variant}".*?</div>',
+        html,
+        re.S,
+    )
+    assert match, "The review panel must identify the current student."
+    return match.group()
+
+
+def test_review_panel_identity_tracks_navigation_between_students(
+    workflow_review, client
+):
+    review = workflow_review
+    first, second = review["submissions"]
+    first_url = reverse("moderation:submission", args=[review["id"], first["id"]])
+    # Render raw synthetic records; this UI test must not refresh checking results.
+    with patch("moderation.views.get_review", side_effect=store.load):
+        page = client.get(first_url)
+        block = identity_block(page)
+        assert escape(first["name"]) in block and first["number"] in block
+        html = page.content.decode()
+        assert (
+            html.index('<aside class="source-panel">')
+            < html.index(block)
+            < html.index("Source documents")
+        )
+        assert "Save and open next" in html
+        response = save(client, review, "identity", decision="complete", action="next")
+        assert urlsplit(response.url).path == reverse(
+            "moderation:submission", args=[review["id"], second["id"]]
+        )
+        next_page = client.get(response.url)
+        for variant in ("sidebar", "mobile"):
+            block = identity_block(next_page, variant)
+            assert escape(second["name"]) in block and second["number"] in block
+            assert escape(first["name"]) not in block and first["number"] not in block
+        previous_page = client.get(first_url)
+        assert escape(first["name"]) in identity_block(previous_page)
+        assert second["number"] not in identity_block(previous_page)
+
+
+def test_review_identity_escapes_long_names_in_both_responsive_headers(
+    workflow_review, client
+):
+    review = workflow_review
+    student = review["submissions"][0]
+    student["name"] = (
+        'A very long synthetic student name & <img src=x onerror="alert(1)">'
+    )
+    original = copy.deepcopy(review)
+    with patch("moderation.views.get_review", return_value=review):
+        page = client.get(
+            reverse("moderation:submission", args=[review["id"], student["id"]])
+        )
+    for variant in ("sidebar", "mobile"):
+        block = identity_block(page, variant)
+        assert escape(student["name"]) in block and student["number"] in block
+        assert "<img" not in block
+    assert review == original
 
 
 def test_saved_manual_result_counts_as_reviewed_but_remains_unresolved(

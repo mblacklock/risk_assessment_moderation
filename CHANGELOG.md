@@ -1,5 +1,15 @@
 # Changelog
 
+## Keep the current student visible during review — 24 November 2026
+
+- Add the current student's name and number above the desktop sidebar content,
+  retaining visibility while scrolling. Use a compact sticky identity header on
+  narrow screens without pinning the entire documents panel.
+- Preserve navigation and review controls; render identifiers from the current
+  submission and wrap long names. Add UI regression coverage for cross-student
+  navigation, returning to a student and escaped long names.
+- No changes to checking, moderation decisions, approvals or saved records.
+
 ## Keep confirmation counts stable after acknowledgements — 23 November 2026
 
 - Separate automatic-acceptance eligibility from human-reviewed status when counting
